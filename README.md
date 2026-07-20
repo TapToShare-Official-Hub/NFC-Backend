@@ -12,7 +12,7 @@ generation is logged to Supabase.
    - Unknown slug → a friendly "card not linked yet" page.
 3. The landing page shows 5 buttons: Xiaohongshu, Instagram, Facebook, TikTok, Google Review.
 4. Tapping a button `POST`s `{ slug, platform }` to `/api/caption`.
-5. That route calls Claude (`claude-haiku-4-5-20251001`) to write a platform-appropriate
+5. That route calls OpenAI (`gpt-4o-mini`) to write a platform-appropriate
    caption — **Xiaohongshu in Simplified Chinese**, everything else in English.
 6. The caption appears in a box with a big **Copy** button and a button that opens
    the target app/site in a new tab.
@@ -22,7 +22,7 @@ generation is logged to Supabase.
 ## Tech
 
 - Next.js 15 (App Router) + React 19 + TypeScript
-- `@anthropic-ai/sdk` for captions
+- `openai` for captions
 - `@supabase/supabase-js` (anon key) for lookups + logging
 
 ---
@@ -31,7 +31,7 @@ generation is logged to Supabase.
 
 - Node.js 18.18+ (Node 20+ recommended)
 - A [Supabase](https://supabase.com) project
-- An [Anthropic API key](https://console.anthropic.com/settings/keys)
+- An [OpenAI API key](https://platform.openai.com/api-keys)
 
 ## 2. Set up the database
 
@@ -59,7 +59,7 @@ Fill in `.env.local`:
 
 | Variable            | Where to find it                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY` | Anthropic Console → Settings → API Keys                             |
+| `OPENAI_API_KEY`    | OpenAI Platform → API keys                                           |
 | `SUPABASE_URL`      | Supabase → Project Settings → Data API → Project URL                 |
 | `SUPABASE_ANON_KEY` | Supabase → Project Settings → API Keys → `anon` `public`             |
 
@@ -93,7 +93,7 @@ platform button, copy the caption, and confirm rows appear in the Supabase
 2. In [Vercel](https://vercel.com/new), **Import** the repository. Vercel detects
    Next.js automatically — no build settings to change.
 3. Under **Settings → Environment Variables**, add all three variables from
-   `.env.local` (`ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`) for the
+   `.env.local` (`OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`) for the
    Production (and Preview) environments.
 4. **Deploy.**
 5. Program your NFC cards to `https://<your-vercel-domain>/r/<slug>`.
@@ -113,7 +113,7 @@ app/
   r/[slug]/
     page.tsx              Server component: lookup + tap logging + fallback
     Landing.tsx           Client component: buttons, caption box, copy/open
-  api/caption/route.ts    Anthropic caption generation + caption logging
+  api/caption/route.ts    OpenAI caption generation + caption logging
 lib/
   supabase.ts             Supabase client (anon key)
   platforms.ts            The 5 platforms + open-URL resolution
@@ -127,7 +127,7 @@ supabase-schema.sql       Table definitions + RLS + seed data
 - **Google review link:** set `google_review_url` on the restaurant row to your
   Google "write a review" link. If it's empty, the button falls back to a Google
   search for `"<name> reviews"`.
-- **Model:** the caption route uses `claude-haiku-4-5-20251001`. Change it in
+- **Model:** the caption route uses `gpt-4o-mini`. Change it in
   `app/api/caption/route.ts` if needed.
 - **Tone:** tweak per-platform prompts in `lib/prompt.ts`.
 - **Out of scope (by design):** no auth, no dashboard, no photo upload.

@@ -23,8 +23,8 @@ multi-language beyond zh/en, analytics UI.
 ## Stack
 
 Next.js App Router · Vercel · Supabase (restaurants, taps) ·
-Anthropic API (claude-haiku-4-5-20251001)
+OpenAI API (gpt-4o-mini)
 
 ## Env
 
-ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY
+OPENAI_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY

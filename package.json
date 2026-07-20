@@ -2,7 +2,7 @@
   "name": "nfc-tap-to-share",
   "version": "1.0.0",
   "private": true,
-  "description": "NFC tap-to-share landing tool for restaurants — generates platform-specific captions with Claude.",
+  "description": "NFC tap-to-share landing tool for restaurants — generates platform-specific captions with OpenAI.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -10,9 +10,9 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.68.0",
     "@supabase/supabase-js": "^2.58.0",
     "next": "^15.5.0",
+    "openai": "^6.48.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

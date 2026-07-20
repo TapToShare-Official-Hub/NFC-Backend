@@ -1,14 +1,14 @@
 import { NextResponse, after } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { supabase } from '@/lib/supabase';
 import { isPlatformId } from '@/lib/platforms';
 import { buildPrompt } from '@/lib/prompt';
 import { logCaption } from '@/lib/log';
 
 // The exact model requested for this project.
-const MODEL = 'claude-haiku-4-5-20251001';
+const MODEL = 'gpt-4o-mini';
 
-const anthropic = new Anthropic(); // reads ANTHROPIC_API_KEY from the environment
+const openai = new OpenAI(); // reads OPENAI_API_KEY from the environment
 
 export async function POST(req: Request) {
   let body: unknown;
@@ -51,18 +51,16 @@ export async function POST(req: Request) {
   );
 
   try {
-    const message = await anthropic.messages.create({
+    const completion = await openai.chat.completions.create({
       model: MODEL,
       max_tokens: 400,
-      system,
-      messages: [{ role: 'user', content: user }],
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
     });
 
-    const caption = message.content
-      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-      .map((block) => block.text)
-      .join('')
-      .trim();
+    const caption = (completion.choices[0]?.message?.content ?? '').trim();
 
     if (!caption) {
       return NextResponse.json(
@@ -76,7 +74,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ caption });
   } catch (err) {
-    console.error('[caption] Anthropic request failed', err);
+    console.error('[caption] OpenAI request failed', err);
     return NextResponse.json(
       { error: 'Could not generate a caption right now.' },
       { status: 502 },
