@@ -65,6 +65,13 @@ Fill in `.env.local`:
 
 These are server-side only (no `NEXT_PUBLIC_` prefix) and are never sent to the browser.
 
+> ⚠️ **`SUPABASE_URL` must be the bare project URL** — e.g.
+> `https://your-project-ref.supabase.co`, with **no** `/rest/v1` path and **no**
+> trailing slash. supabase-js appends `/rest/v1/...` itself; including it here
+> produces `.../rest/v1/rest/v1/...` and every lookup fails with
+> `PGRST125 Invalid path specified in request URL`. Set the same bare URL in
+> Vercel's environment variables.
+
 ## 4. Run locally
 
 ```bash

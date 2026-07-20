@@ -13,11 +13,19 @@ export default async function RestaurantPage({
 }) {
   const { slug } = await params;
 
-  const { data: restaurant } = await supabase
+  const { data: restaurant, error } = await supabase
     .from('restaurants')
     .select('name, cuisine, google_review_url')
     .eq('slug', slug)
     .single<Restaurant>();
+
+  // `.single()` returns PGRST116 when no row matches — that's a genuine
+  // "unknown slug", so we fall through to the fallback below. Anything else
+  // (bad URL, RLS, network) is a real failure and must not be silently
+  // rendered as "card not linked yet".
+  if (error && error.code !== 'PGRST116') {
+    console.error('[slug-lookup] Supabase error for slug', slug, error);
+  }
 
   // Log every tap, fire-and-forget, after the response is sent.
   after(() => logTap(slug, Boolean(restaurant)));
