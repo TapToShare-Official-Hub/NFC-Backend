@@ -15,6 +15,11 @@ create table if not exists public.restaurants (
   created_at         timestamptz not null default now()
 );
 
+-- Xiaohongshu direct-publish needs at least one image per note. Nullable:
+-- restaurants without photos simply don't show the XHS button. No separate
+-- photos table — one text[] column is enough for the MVP.
+alter table public.restaurants add column if not exists photo_urls text[];
+
 -- ----------------------------------------------------------------------------
 -- taps: append-only event log. One row per page visit ("tap") and per
 -- caption generation ("caption"). Written fire-and-forget from the app.
@@ -32,6 +37,20 @@ create index if not exists taps_slug_idx        on public.taps (slug);
 create index if not exists taps_created_at_idx   on public.taps (created_at);
 
 -- ----------------------------------------------------------------------------
+-- xhs_publishes: one row per successful Xiaohongshu direct-publish handoff.
+-- Written fire-and-forget after the /api/xhs/publish response is sent.
+-- ----------------------------------------------------------------------------
+create table if not exists public.xhs_publishes (
+  id            uuid primary key default gen_random_uuid(),
+  restaurant_id uuid references public.restaurants (id),
+  note_id       text,                        -- id returned by the myaibot bridge (may be null)
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists xhs_publishes_restaurant_idx
+  on public.xhs_publishes (restaurant_id);
+
+-- ----------------------------------------------------------------------------
 -- Row Level Security
 -- The app uses the anon key, so we grant exactly the access it needs:
 --   * anyone may READ restaurants (the landing page + caption route need it)
@@ -39,8 +58,9 @@ create index if not exists taps_created_at_idx   on public.taps (created_at);
 -- Nobody can read the taps table with the anon key, and nobody can write
 -- restaurants — manage those from the Supabase dashboard or a service key.
 -- ----------------------------------------------------------------------------
-alter table public.restaurants enable row level security;
-alter table public.taps        enable row level security;
+alter table public.restaurants   enable row level security;
+alter table public.taps          enable row level security;
+alter table public.xhs_publishes enable row level security;
 
 drop policy if exists "public read restaurants" on public.restaurants;
 create policy "public read restaurants"
@@ -50,6 +70,12 @@ create policy "public read restaurants"
 drop policy if exists "public insert taps" on public.taps;
 create policy "public insert taps"
   on public.taps for insert
+  with check (true);
+
+-- Same shape as taps: the anon key may append rows but never read them back.
+drop policy if exists "public insert xhs_publishes" on public.xhs_publishes;
+create policy "public insert xhs_publishes"
+  on public.xhs_publishes for insert
   with check (true);
 
 -- ----------------------------------------------------------------------------
@@ -62,3 +88,22 @@ values
    'https://search.google.com/local/writereview?placeid=REPLACE_WITH_PLACE_ID'),
   ('nonna-pizza', 'Nonna''s', 'Neapolitan pizza', null)
 on conflict (slug) do nothing;
+
+-- House of Fishball is the verified Xiaohongshu direct-publish demo restaurant.
+-- Idempotent so a fresh setup gets it too; `do update` refreshes the fields we
+-- own here without clobbering anything else on the row.
+insert into public.restaurants (slug, name, cuisine, photo_urls)
+values
+  ('house-of-fishball', 'House of Fishball', 'Teochew fishball noodles',
+   array['https://picsum.photos/720/960'])
+on conflict (slug) do update set
+  cuisine    = excluded.cuisine,
+  photo_urls = excluded.photo_urls;
+
+-- Standalone equivalent to run once against an existing live DB that already
+-- has the house-of-fishball row (Supabase → SQL Editor → New query):
+--
+--   update public.restaurants
+--   set cuisine = 'Teochew fishball noodles',
+--       photo_urls = array['https://picsum.photos/720/960']
+--   where slug = 'house-of-fishball';

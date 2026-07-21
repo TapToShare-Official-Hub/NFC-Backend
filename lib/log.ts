@@ -31,3 +31,17 @@ export async function logCaption(
     console.error('[log] failed to record caption', err);
   }
 }
+
+export async function logXhsPublish(
+  restaurantId: string,
+  noteId: string | null,
+): Promise<void> {
+  try {
+    await supabase.from('xhs_publishes').insert({
+      restaurant_id: restaurantId,
+      note_id: noteId,
+    });
+  } catch (err) {
+    console.error('[log] failed to record xhs publish', err);
+  }
+}

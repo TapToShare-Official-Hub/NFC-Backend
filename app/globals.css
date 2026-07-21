@@ -198,6 +198,19 @@ body {
   justify-content: center;
 }
 
+/* ---- Notice (e.g. Xiaohongshu direct-publish fell back to copy) ---- */
+.notice {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  background: #2a2410;
+  border: 1px solid #5a4a1f;
+  border-radius: var(--radius);
+  color: #f0d98a;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
+}
+
 /* ---- Error ---- */
 .error {
   margin-top: 22px;

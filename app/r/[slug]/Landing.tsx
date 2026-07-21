@@ -21,12 +21,54 @@ export default function Landing({ slug, restaurant }: Props) {
   const [status, setStatus] = useState<Status>('idle');
   const [caption, setCaption] = useState('');
   const [copied, setCopied] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  // Xiaohongshu notes require an image; hide the button when there are none.
+  const hasPhotos = (restaurant.photo_urls?.length ?? 0) > 0;
+  const platforms = PLATFORMS.filter(
+    (p) => p.id !== 'xiaohongshu' || hasPhotos,
+  );
+
+  // Tapping Xiaohongshu tries the direct-publish bridge first: on success we
+  // redirect straight into the XHS app. Any failure (esp. 402 insufficient
+  // balance) falls back to the copy-to-clipboard flow — never a dead end.
+  async function publishXhs() {
+    setActive('xiaohongshu');
+    setStatus('loading');
+    setCaption('');
+    setCopied(false);
+    setNotice('');
+
+    try {
+      const res = await fetch('/api/xhs/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug }),
+      });
+
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+
+      const data = (await res.json()) as { url?: string };
+      if (!data.url) throw new Error('No url');
+
+      window.location.href = data.url;
+    } catch (err) {
+      console.error(err);
+      setNotice(
+        "Couldn't open Xiaohongshu directly — copy the caption below and paste it in the app.",
+      );
+      await generate('xiaohongshu');
+    }
+  }
 
   async function generate(platform: PlatformId) {
     setActive(platform);
     setStatus('loading');
     setCaption('');
     setCopied(false);
+    // Keep the fallback notice when this is the XHS copy-to-clipboard fallback;
+    // clear any stale notice when the user taps a different platform.
+    if (platform !== 'xiaohongshu') setNotice('');
 
     try {
       const res = await fetch('/api/caption', {
@@ -79,7 +121,7 @@ export default function Landing({ slug, restaurant }: Props) {
       <p className="prompt">Where do you want to post?</p>
 
       <div className="buttons">
-        {PLATFORMS.map((p) => {
+        {platforms.map((p) => {
           const isLoading = status === 'loading' && active === p.id;
           return (
             <button
@@ -87,7 +129,9 @@ export default function Landing({ slug, restaurant }: Props) {
               type="button"
               className="platform-btn"
               style={{ ['--btn-color' as string]: p.color }}
-              onClick={() => generate(p.id)}
+              onClick={() =>
+                p.id === 'xiaohongshu' ? publishXhs() : generate(p.id)
+              }
               disabled={status === 'loading'}
             >
               <span className="emoji" aria-hidden>
@@ -99,6 +143,12 @@ export default function Landing({ slug, restaurant }: Props) {
           );
         })}
       </div>
+
+      {notice && (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      )}
 
       {status === 'error' && (
         <div className="error" role="alert">

@@ -19,4 +19,5 @@ export interface Restaurant {
   name: string;
   cuisine: string;
   google_review_url: string | null;
+  photo_urls: string[] | null;
 }

@@ -1,14 +1,8 @@
 import { NextResponse, after } from 'next/server';
-import OpenAI from 'openai';
 import { supabase } from '@/lib/supabase';
 import { isPlatformId } from '@/lib/platforms';
-import { buildPrompt } from '@/lib/prompt';
+import { generateCaption } from '@/lib/caption';
 import { logCaption } from '@/lib/log';
-
-// The exact model requested for this project.
-const MODEL = 'gpt-4o-mini';
-
-const openai = new OpenAI(); // reads OPENAI_API_KEY from the environment
 
 export async function POST(req: Request) {
   let body: unknown;
@@ -44,23 +38,16 @@ export async function POST(req: Request) {
     );
   }
 
-  const { system, user } = buildPrompt(
-    platform,
-    restaurant.name,
-    restaurant.cuisine,
-  );
-
   try {
-    const completion = await openai.chat.completions.create({
-      model: MODEL,
-      max_tokens: 400,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-    });
+    const result = await generateCaption(platform, restaurant);
 
-    const caption = (completion.choices[0]?.message?.content ?? '').trim();
+    // Xiaohongshu generation is structured; flatten it into one copyable
+    // string so the { caption } contract and the copy-to-clipboard client
+    // stay unchanged. Every other platform already returns a string.
+    const caption =
+      typeof result === 'string'
+        ? result
+        : `${result.title}\n\n${result.content}`;
 
     if (!caption) {
       return NextResponse.json(
