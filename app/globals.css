@@ -1,10 +1,12 @@
 :root {
-  --bg: #0f1115;
-  --card: #1a1d24;
-  --card-2: #232733;
-  --text: #f5f6f8;
-  --muted: #a2a8b4;
-  --border: #2c313d;
+  --bg: #fbf7f2;
+  --surface: #ffffff;
+  --surface-2: #f4efe8;
+  --text: #17130f;
+  --muted: #5b5249; /* dark enough to stay legible in sunlight */
+  --border: #e7e0d6;
+  --border-strong: #d9d0c3;
+  --ok: #128a55;
   --radius: 18px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -21,19 +23,22 @@ body {
 }
 
 body {
-  background: radial-gradient(140% 100% at 50% 0%, #171a21 0%, var(--bg) 60%);
+  background: var(--bg);
   color: var(--text);
+  /* CJK-first so Simplified Chinese captions render natively, not tofu. */
   font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
-    'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Segoe UI',
+    Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   min-height: 100dvh;
 }
 
 .screen {
-  max-width: 480px;
+  max-width: 460px;
   margin: 0 auto;
-  padding: 28px 20px calc(32px + var(--safe-bottom));
+  padding: 22px 20px calc(20px + var(--safe-bottom));
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -42,91 +47,222 @@ body {
 /* ---- Header ---- */
 .header {
   text-align: center;
-  margin-bottom: 26px;
+  margin-bottom: 18px;
 }
 
 .eyebrow {
-  font-size: 13px;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--muted);
-  margin: 0 0 8px;
+  font-weight: 700;
+  margin: 0 0 6px;
 }
 
 .title {
   font-size: 30px;
-  line-height: 1.15;
+  line-height: 1.12;
   font-weight: 800;
+  letter-spacing: -0.01em;
   margin: 0;
+  color: var(--text);
 }
 
 .subtitle {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   color: var(--muted);
   font-size: 15px;
 }
 
 /* ---- Prompt line ---- */
 .prompt {
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   margin: 0 0 14px;
   text-align: center;
   color: var(--text);
 }
 
-/* ---- Platform buttons ---- */
+/* ---- Buttons: XHS primary + 2x2 grid ---- */
 .buttons {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.platform-btn {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 18px 20px;
+/* Shared button reset */
+.primary-btn,
+.grid-btn {
   border: none;
   border-radius: var(--radius);
-  background: var(--btn-color, var(--card-2));
-  color: #fff;
-  font-size: 18px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
-  text-align: left;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  color: #fff;
+  display: flex;
+  align-items: center;
   transition:
     transform 0.08s ease,
     opacity 0.15s ease;
 }
 
-.platform-btn:active {
-  transform: scale(0.98);
+.primary-btn:active,
+.grid-btn:active {
+  transform: scale(0.985);
 }
 
-.platform-btn:disabled {
-  opacity: 0.55;
+.primary-btn:disabled,
+.grid-btn:disabled {
   cursor: default;
 }
 
-.platform-btn .emoji {
-  font-size: 24px;
-  line-height: 1;
+/* Dim the buttons that aren't the one being worked on. */
+.buttons.is-loading .primary-btn:disabled,
+.buttons.is-loading .grid-btn:disabled {
+  opacity: 0.4;
 }
 
-.platform-btn .spinner {
+.buttons.is-loading .working {
+  opacity: 1;
+}
+
+/* Xiaohongshu — the differentiated action, visually primary. */
+.primary-btn {
+  width: 100%;
+  min-height: 66px;
+  gap: 14px;
+  padding: 0 22px;
+  font-size: 19px;
+  background: #ff2442;
+  box-shadow: 0 8px 20px rgba(255, 36, 66, 0.28);
+}
+
+.primary-btn .label-zh {
+  font-size: 20px;
+}
+
+.primary-btn .label-en {
+  font-weight: 700;
+  opacity: 0.9;
+  font-size: 15px;
+  margin-left: 2px;
+}
+
+.primary-btn .spinner {
   margin-left: auto;
+}
+
+/* The four copy-to-clipboard platforms. */
+.grid {
+  display: grid;
+  /* minmax(0,1fr) lets a long label (e.g. "Google Review") shrink instead of
+     forcing the track wider than the viewport. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.grid-btn {
+  min-width: 0;
+  min-height: 64px;
+  gap: 10px;
+  padding: 0 14px;
+  font-size: 16px;
+  line-height: 1.15;
+  justify-content: flex-start;
+  box-shadow: 0 4px 12px rgba(23, 19, 15, 0.14);
+}
+
+.grid-btn > span {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.plat-instagram {
+  background: radial-gradient(
+      circle at 30% 107%,
+      #fdf497 0%,
+      #fdf497 5%,
+      #fd5949 45%,
+      #d6249f 60%,
+      #285aeb 90%
+    );
+}
+
+.plat-facebook {
+  background: #1877f2;
+}
+
+.plat-tiktok {
+  background: #000000;
+}
+
+/* Google keeps its authentic white treatment: dark label, real multicolour G. */
+.plat-google {
+  background: #ffffff;
+  color: #1f1b16;
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 4px 12px rgba(23, 19, 15, 0.1);
+}
+
+/* ---- Icons ---- */
+.icon {
+  width: 26px;
+  height: 26px;
+  flex: none;
+}
+
+.primary-btn .icon {
+  width: 30px;
+  height: 30px;
+}
+
+/* ---- Loading note (deliberate, not frozen) ---- */
+.loading-note {
+  margin-top: 16px;
+  text-align: center;
+}
+
+.loading-note p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.progress {
+  height: 5px;
+  width: 100%;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.progress::after {
+  content: '';
+  display: block;
+  height: 100%;
+  width: 40%;
+  border-radius: 999px;
+  background: #ff2442;
+  animation: indeterminate 1.15s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
 }
 
 /* ---- Result card ---- */
 .result {
-  margin-top: 22px;
-  background: var(--card);
+  margin-top: 20px;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 18px;
+  padding: 16px;
+  box-shadow: 0 6px 18px rgba(23, 19, 15, 0.06);
 }
 
 .result-head {
@@ -136,24 +272,29 @@ body {
   margin-bottom: 12px;
 }
 
+.result-head .icon {
+  width: 20px;
+  height: 20px;
+}
+
 .result-head .label {
-  font-size: 13px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .caption-box {
-  background: var(--card-2);
+  background: var(--surface-2);
   border-radius: 14px;
   padding: 16px;
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--text);
-  max-height: 46dvh;
+  max-height: 40dvh;
   overflow-y: auto;
 }
 
@@ -165,12 +306,16 @@ body {
 
 .action-btn {
   flex: 1;
-  padding: 16px;
+  min-height: 54px;
+  padding: 0 16px;
   border-radius: 14px;
   border: none;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: transform 0.08s ease;
 }
 
@@ -179,43 +324,41 @@ body {
 }
 
 .action-btn.primary {
-  background: #ffffff;
-  color: #111;
+  background: var(--text);
+  color: #fff;
 }
 
 .action-btn.primary.copied {
-  background: #21c07a;
+  background: var(--ok);
   color: #fff;
 }
 
 .action-btn.secondary {
-  background: var(--card-2);
+  background: var(--surface);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   text-decoration: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* ---- Notice (e.g. Xiaohongshu direct-publish fell back to copy) ---- */
 .notice {
-  margin: 18px 0 0;
+  margin: 16px 0 0;
   padding: 12px 14px;
-  background: #2a2410;
-  border: 1px solid #5a4a1f;
+  background: #fff6e0;
+  border: 1px solid #e9c766;
   border-radius: var(--radius);
-  color: #f0d98a;
+  color: #7a5a12;
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.45;
+  font-weight: 600;
   text-align: center;
 }
 
 /* ---- Error ---- */
 .error {
-  margin-top: 22px;
-  background: #2a1a1d;
-  border: 1px solid #5a2b31;
+  margin-top: 20px;
+  background: #fdeceb;
+  border: 1px solid #f2b8b4;
   border-radius: var(--radius);
   padding: 18px;
   text-align: center;
@@ -223,18 +366,20 @@ body {
 
 .error p {
   margin: 0 0 14px;
-  color: #ffb4bb;
+  color: #a4231b;
   font-size: 15px;
+  font-weight: 600;
 }
 
 .retry-btn {
-  padding: 14px 24px;
+  min-height: 48px;
+  padding: 0 26px;
   border-radius: 12px;
   border: none;
-  background: #ff5b6a;
+  background: #e0362c;
   color: #fff;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
 }
 
@@ -244,13 +389,20 @@ body {
 
 /* ---- Spinner ---- */
 .spinner {
-  width: 18px;
-  height: 18px;
-  border: 2.5px solid rgba(255, 255, 255, 0.4);
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid rgba(255, 255, 255, 0.45);
   border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   display: inline-block;
+  flex: none;
+}
+
+/* Dark spinner for the white Google button. */
+.spinner.dark {
+  border-color: rgba(23, 19, 15, 0.2);
+  border-top-color: #1f1b16;
 }
 
 @keyframes spin {
@@ -261,7 +413,7 @@ body {
 
 .footer {
   margin-top: auto;
-  padding-top: 28px;
+  padding-top: 20px;
   text-align: center;
   color: var(--muted);
   font-size: 12px;
@@ -271,10 +423,11 @@ body {
 .center-card {
   margin: auto;
   text-align: center;
-  background: var(--card);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 32px 24px;
+  box-shadow: 0 8px 22px rgba(23, 19, 15, 0.07);
 }
 
 .center-card .big-emoji {
@@ -284,17 +437,18 @@ body {
 .center-card h1 {
   font-size: 22px;
   margin: 14px 0 8px;
+  color: var(--text);
 }
 
 .center-card p {
   color: var(--muted);
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.55;
   margin: 0;
 }
 
 code {
-  background: var(--card-2);
+  background: var(--surface-2);
   padding: 2px 6px;
   border-radius: 6px;
   font-size: 13px;

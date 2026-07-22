@@ -8,6 +8,7 @@ import {
   type PlatformId,
 } from '@/lib/platforms';
 import type { Restaurant } from '@/lib/supabase';
+import PlatformIcon from './PlatformIcon';
 
 interface Props {
   slug: string;
@@ -28,6 +29,11 @@ export default function Landing({ slug, restaurant }: Props) {
   const platforms = PLATFORMS.filter(
     (p) => p.id !== 'xiaohongshu' || hasPhotos,
   );
+  // Layout groups (pure render derivation): XHS is the primary action, the
+  // rest sit in a 2x2 grid.
+  const xhs = platforms.find((p) => p.id === 'xiaohongshu');
+  const others = platforms.filter((p) => p.id !== 'xiaohongshu');
+  const isLoading = status === 'loading';
 
   // Tapping Xiaohongshu tries the direct-publish bridge first: on success we
   // redirect straight into the XHS app. Any failure (esp. 402 insufficient
@@ -120,29 +126,60 @@ export default function Landing({ slug, restaurant }: Props) {
 
       <p className="prompt">Where do you want to post?</p>
 
-      <div className="buttons">
-        {platforms.map((p) => {
-          const isLoading = status === 'loading' && active === p.id;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              className="platform-btn"
-              style={{ ['--btn-color' as string]: p.color }}
-              onClick={() =>
-                p.id === 'xiaohongshu' ? publishXhs() : generate(p.id)
-              }
-              disabled={status === 'loading'}
-            >
-              <span className="emoji" aria-hidden>
-                {p.emoji}
-              </span>
-              <span>{p.label}</span>
-              {isLoading && <span className="spinner" aria-hidden />}
-            </button>
-          );
-        })}
+      <div className={`buttons${isLoading ? ' is-loading' : ''}`}>
+        {xhs && (
+          <button
+            type="button"
+            className={`primary-btn${
+              isLoading && active === 'xiaohongshu' ? ' working' : ''
+            }`}
+            onClick={() => publishXhs()}
+            disabled={isLoading}
+          >
+            <PlatformIcon id="xiaohongshu" />
+            <span className="label-zh">小红书</span>
+            <span className="label-en">Xiaohongshu</span>
+            {isLoading && active === 'xiaohongshu' && (
+              <span className="spinner" aria-hidden />
+            )}
+          </button>
+        )}
+
+        <div className="grid">
+          {others.map((p) => {
+            const active_ = isLoading && active === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                className={`grid-btn plat-${p.id}${active_ ? ' working' : ''}`}
+                onClick={() => generate(p.id)}
+                disabled={isLoading}
+              >
+                <PlatformIcon id={p.id} />
+                <span>{p.label}</span>
+                {active_ && (
+                  <span
+                    className={`spinner${p.id === 'google' ? ' dark' : ''}`}
+                    aria-hidden
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      {isLoading && (
+        <div className="loading-note" aria-live="polite">
+          <p>
+            {active === 'xiaohongshu'
+              ? '正在准备你的小红书笔记… Preparing your post…'
+              : '正在生成文案… Writing your caption…'}
+          </p>
+          <div className="progress" aria-hidden />
+        </div>
+      )}
 
       {notice && (
         <p className="notice" role="status">
@@ -166,9 +203,7 @@ export default function Landing({ slug, restaurant }: Props) {
       {status === 'done' && activePlatform && (
         <section className="result" aria-live="polite">
           <div className="result-head">
-            <span className="emoji" aria-hidden>
-              {activePlatform.emoji}
-            </span>
+            <PlatformIcon id={activePlatform.id} />
             <span className="label">{activePlatform.label} caption</span>
           </div>
 
