@@ -36,11 +36,6 @@ export default async function RestaurantPage({
         <div className="center-card">
           <div className="big-emoji">🤔</div>
           <h1>Card not linked yet</h1>
-          <p>
-            This card isn&apos;t connected to a restaurant. If you&apos;re the
-            owner, add a row with slug <code>{slug}</code> to your
-            <code> restaurants</code> table.
-          </p>
         </div>
       </main>
     );
