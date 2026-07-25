@@ -17,6 +17,13 @@ interface Props {
 
 type Status = 'idle' | 'loading' | 'done' | 'error';
 
+// Temporarily switched off — tapping these does nothing for now.
+const DISABLED_PLATFORMS = new Set<PlatformId>([
+  'instagram',
+  'facebook',
+  'tiktok',
+]);
+
 export default function Landing({ slug, restaurant }: Props) {
   const [active, setActive] = useState<PlatformId | null>(null);
   const [status, setStatus] = useState<Status>('idle');
@@ -148,13 +155,17 @@ export default function Landing({ slug, restaurant }: Props) {
         <div className="grid">
           {others.map((p) => {
             const active_ = isLoading && active === p.id;
+            const off = DISABLED_PLATFORMS.has(p.id);
             return (
               <button
                 key={p.id}
                 type="button"
-                className={`grid-btn plat-${p.id}${active_ ? ' working' : ''}`}
-                onClick={() => generate(p.id)}
-                disabled={isLoading}
+                className={`grid-btn plat-${p.id}${active_ ? ' working' : ''}${
+                  off ? ' is-off' : ''
+                }`}
+                onClick={off ? undefined : () => generate(p.id)}
+                disabled={isLoading || off}
+                aria-disabled={off || undefined}
               >
                 <PlatformIcon id={p.id} />
                 <span>{p.label}</span>

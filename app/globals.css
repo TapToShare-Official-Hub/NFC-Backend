@@ -195,6 +195,18 @@ body {
   background: #000000;
 }
 
+/* Temporarily disabled platforms — visibly inactive, no tap response. */
+.grid-btn.is-off {
+  opacity: 0.45;
+  filter: grayscale(0.4);
+  box-shadow: none;
+  cursor: default;
+}
+
+.grid-btn.is-off:active {
+  transform: none;
+}
+
 /* Google keeps its authentic white treatment: dark label, real multicolour G. */
 .plat-google {
   background: #ffffff;
