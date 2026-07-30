@@ -20,4 +20,6 @@ export interface Restaurant {
   cuisine: string;
   google_review_url: string | null;
   photo_urls: string[] | null;
+  // PROTOTYPE: hardcoded caption, remove for multi-restaurant.
+  google_caption: string | null;
 }

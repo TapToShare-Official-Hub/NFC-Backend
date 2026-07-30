@@ -20,6 +20,11 @@ create table if not exists public.restaurants (
 -- photos table — one text[] column is enough for the MVP.
 alter table public.restaurants add column if not exists photo_urls text[];
 
+-- PROTOTYPE: hardcoded caption, remove for multi-restaurant.
+-- For the demo, the Google Review button serves this fixed caption verbatim
+-- instead of calling OpenAI. Null → fall back to normal generation.
+alter table public.restaurants add column if not exists google_caption text;
+
 -- ----------------------------------------------------------------------------
 -- taps: append-only event log. One row per page visit ("tap") and per
 -- caption generation ("caption"). Written fire-and-forget from the app.

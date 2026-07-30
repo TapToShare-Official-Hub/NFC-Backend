@@ -30,9 +30,12 @@ export default function Landing({ slug, restaurant }: Props) {
   const [caption, setCaption] = useState('');
   const [copied, setCopied] = useState(false);
   const [notice, setNotice] = useState('');
+  const [savingPhoto, setSavingPhoto] = useState(false);
+  const [photoHint, setPhotoHint] = useState('');
 
   // Xiaohongshu notes require an image; hide the button when there are none.
   const hasPhotos = (restaurant.photo_urls?.length ?? 0) > 0;
+  const photoUrl = restaurant.photo_urls?.[0] ?? null;
   const platforms = PLATFORMS.filter(
     (p) => p.id !== 'xiaohongshu' || hasPhotos,
   );
@@ -51,6 +54,7 @@ export default function Landing({ slug, restaurant }: Props) {
     setCaption('');
     setCopied(false);
     setNotice('');
+    setPhotoHint('');
 
     try {
       const res = await fetch('/api/xhs/publish', {
@@ -79,6 +83,7 @@ export default function Landing({ slug, restaurant }: Props) {
     setStatus('loading');
     setCaption('');
     setCopied(false);
+    setPhotoHint('');
     // Keep the fallback notice when this is the XHS copy-to-clipboard fallback;
     // clear any stale notice when the user taps a different platform.
     if (platform !== 'xiaohongshu') setNotice('');
@@ -115,6 +120,55 @@ export default function Landing({ slug, restaurant }: Props) {
       if (el && range) {
         range.selectAllChildren(el);
       }
+    }
+  }
+
+  // iOS Safari ignores the anchor `download` attribute and blocks programmatic
+  // blob downloads, so we can't force a file save there. Detect it and instead
+  // open the image full-screen with a long-press hint. Everyone else gets a
+  // real fetch-to-blob download (the photo host sends Access-Control-Allow-
+  // Origin: *, so the fetch is allowed).
+  function isIosSafari() {
+    const ua = navigator.userAgent;
+    const iOS =
+      /iP(hone|ad|od)/.test(ua) ||
+      // iPadOS reports as desktop Safari; sniff touch + Mac instead.
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    return iOS && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+  }
+
+  async function savePhoto() {
+    if (!photoUrl || savingPhoto) return;
+    setPhotoHint('');
+
+    if (isIosSafari()) {
+      window.open(photoUrl, '_blank', 'noopener,noreferrer');
+      setPhotoHint('Long-press the photo, then tap “Save to Photos”.');
+      return;
+    }
+
+    setSavingPhoto(true);
+    try {
+      const res = await fetch(photoUrl, { mode: 'cors' });
+      if (!res.ok) throw new Error(`Fetch failed (${res.status})`);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      const safeName = restaurant.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+      a.download = `${safeName || 'photo'}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+    } catch (err) {
+      console.error(err);
+      // Blob download failed (CORS/network) — open the image so the user can
+      // still save it manually. Never a dead end.
+      window.open(photoUrl, '_blank', 'noopener,noreferrer');
+      setPhotoHint('Long-press the photo to save it.');
+    } finally {
+      setSavingPhoto(false);
     }
   }
 
@@ -237,6 +291,18 @@ export default function Landing({ slug, restaurant }: Props) {
               {activePlatform.openLabel}
             </a>
           </div>
+
+          {photoUrl && (
+            <button
+              type="button"
+              className="action-btn save-photo"
+              onClick={savePhoto}
+              disabled={savingPhoto}
+            >
+              {savingPhoto ? 'Saving…' : '⬇ Save Photo'}
+            </button>
+          )}
+          {photoHint && <p className="photo-hint">{photoHint}</p>}
         </section>
       )}
 

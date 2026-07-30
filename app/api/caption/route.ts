@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   // Look up the restaurant so the caption is grounded in real name + cuisine.
   const { data: restaurant, error: dbError } = await supabase
     .from('restaurants')
-    .select('name, cuisine')
+    .select('name, cuisine, google_caption')
     .eq('slug', slug)
     .single();
 
@@ -36,6 +36,14 @@ export async function POST(req: Request) {
       { error: 'Restaurant not found.' },
       { status: 404 },
     );
+  }
+
+  // PROTOTYPE: hardcoded caption, remove for multi-restaurant.
+  // Google Review serves the restaurant's stored google_caption verbatim (no
+  // OpenAI call) when it's set; a null column falls through to generation.
+  if (platform === 'google' && restaurant.google_caption) {
+    after(() => logCaption(slug, platform));
+    return NextResponse.json({ caption: restaurant.google_caption });
   }
 
   try {

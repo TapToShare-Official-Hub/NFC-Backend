@@ -352,6 +352,29 @@ body {
   text-decoration: none;
 }
 
+/* Save Photo — full-width row below the Copy/Open pair. */
+.action-btn.save-photo {
+  width: 100%;
+  margin-top: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+
+.action-btn.save-photo:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.photo-hint {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 /* ---- Notice (e.g. Xiaohongshu direct-publish fell back to copy) ---- */
 .notice {
   margin: 16px 0 0;
