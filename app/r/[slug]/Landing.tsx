@@ -18,11 +18,12 @@ interface Props {
 type Status = 'idle' | 'loading' | 'done' | 'error';
 
 // Temporarily switched off — tapping these does nothing for now.
-const DISABLED_PLATFORMS = new Set<PlatformId>([
-  'instagram',
-  'facebook',
-  'tiktok',
-]);
+const DISABLED_PLATFORMS = new Set<PlatformId>(['facebook', 'tiktok']);
+
+// Opens the Instagram story composer directly. No content is passed — Instagram
+// has no pre-fill; this only launches the app on the right screen.
+const IG_STORY_DEEPLINK = 'instagram://story-camera';
+const IG_STORY_WEB_FALLBACK = 'https://www.instagram.com/stories/camera/';
 
 export default function Landing({ slug, restaurant }: Props) {
   const [active, setActive] = useState<PlatformId | null>(null);
@@ -76,6 +77,34 @@ export default function Landing({ slug, restaurant }: Props) {
       );
       await generate('xiaohongshu');
     }
+  }
+
+  // Instagram has no pre-fill, so there's no caption step — tapping it just
+  // drops the user straight into the story camera. If the app isn't installed
+  // the deep link does nothing, so we fall back to the web composer once we're
+  // sure the page never went to the background (i.e. the app never opened).
+  function openInstagramStory() {
+    setActive('instagram');
+    setStatus('idle');
+    setCaption('');
+    setCopied(false);
+    setNotice('');
+    setPhotoHint('');
+
+    let switched = false;
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') switched = true;
+    };
+    document.addEventListener('visibilitychange', onHide);
+
+    window.location.href = IG_STORY_DEEPLINK;
+
+    setTimeout(() => {
+      document.removeEventListener('visibilitychange', onHide);
+      if (!switched && document.visibilityState === 'visible') {
+        window.location.href = IG_STORY_WEB_FALLBACK;
+      }
+    }, 1200);
   }
 
   async function generate(platform: PlatformId) {
@@ -217,7 +246,13 @@ export default function Landing({ slug, restaurant }: Props) {
                 className={`grid-btn plat-${p.id}${active_ ? ' working' : ''}${
                   off ? ' is-off' : ''
                 }`}
-                onClick={off ? undefined : () => generate(p.id)}
+                onClick={
+                  off
+                    ? undefined
+                    : p.id === 'instagram'
+                      ? openInstagramStory
+                      : () => generate(p.id)
+                }
                 disabled={isLoading || off}
                 aria-disabled={off || undefined}
               >

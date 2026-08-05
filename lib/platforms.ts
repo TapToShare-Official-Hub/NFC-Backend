@@ -33,8 +33,10 @@ export const PLATFORMS: Platform[] = [
     label: 'Instagram',
     emoji: '📸',
     color: '#E1306C',
-    url: 'https://www.instagram.com',
-    openLabel: 'Open Instagram',
+    // Tapping Instagram goes straight to the story composer (see Landing.tsx);
+    // this web URL is only the no-app fallback.
+    url: 'https://www.instagram.com/stories/camera/',
+    openLabel: 'Open Instagram Story',
   },
   {
     id: 'facebook',
