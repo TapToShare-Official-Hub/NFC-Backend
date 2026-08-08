@@ -26,12 +26,10 @@ const IG_STORY_DEEPLINK = 'instagram://story-camera';
 const IG_STORY_WEB_FALLBACK = 'https://www.instagram.com/stories/camera/';
 
 // PROTOTYPE: fixed demo image for Share to Story and Save Photo, instead of
-// restaurant.photo_urls. This is the full-size 614x1080 original, NOT the
-// 102x102 square thumbnail the ibb.co/RpkJKxWQ page also links to — that one
-// is what makes the share look cropped and blurry. Sends
-// Access-Control-Allow-Origin: *, so fetching it into a blob is allowed.
-const SHARE_IMAGE_URL =
-  'https://i.ibb.co/DDHjFxnw/Whats-App-Image-2026-08-08-at-15-46-12.jpg';
+// restaurant.photo_urls. Served from public/ so it's same-origin (no CORS to
+// negotiate) and versioned with the code. JPEG rather than the WebP original:
+// Instagram's share extension is unreliable with image/webp.
+const SHARE_IMAGE_URL = '/hardcode-ig.jpg';
 
 export default function Landing({ slug, restaurant }: Props) {
   const [active, setActive] = useState<PlatformId | null>(null);
@@ -68,7 +66,7 @@ export default function Landing({ slug, restaurant }: Props) {
 
     (async () => {
       try {
-        const res = await fetch(SHARE_IMAGE_URL, { mode: 'cors' });
+        const res = await fetch(SHARE_IMAGE_URL);
         if (!res.ok) return;
         const blob = await res.blob();
         if (cancelled) return;
@@ -231,8 +229,7 @@ export default function Landing({ slug, restaurant }: Props) {
   // iOS Safari ignores the anchor `download` attribute and blocks programmatic
   // blob downloads, so we can't force a file save there. Detect it and instead
   // open the image full-screen with a long-press hint. Everyone else gets a
-  // real fetch-to-blob download (the photo host sends Access-Control-Allow-
-  // Origin: *, so the fetch is allowed).
+  // real fetch-to-blob download (same-origin now, so nothing to negotiate).
   function isIosSafari() {
     const ua = navigator.userAgent;
     const iOS =
@@ -254,7 +251,7 @@ export default function Landing({ slug, restaurant }: Props) {
 
     setSavingPhoto(true);
     try {
-      const res = await fetch(SHARE_IMAGE_URL, { mode: 'cors' });
+      const res = await fetch(SHARE_IMAGE_URL);
       if (!res.ok) throw new Error(`Fetch failed (${res.status})`);
       const blob = await res.blob();
       const objectUrl = URL.createObjectURL(blob);
