@@ -366,16 +366,16 @@ body {
   cursor: default;
 }
 
-/* Preview of the generated 1080x1920 story graphic. Capped by height so the
-   9:16 frame can't push the Share button off a phone screen. */
-.story-preview {
+/* Preview of the photo being shared to Instagram. Height-capped so a tall
+   image can't push the Share button off a phone screen. */
+.share-preview {
   display: block;
-  margin: 14px auto 0;
-  max-height: 320px;
+  margin: 0 auto;
+  max-height: 300px;
   width: auto;
   max-width: 100%;
-  border-radius: 12px;
-  border: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+  border-radius: 14px;
+  border: 1px solid var(--border);
 }
 
 .photo-hint {

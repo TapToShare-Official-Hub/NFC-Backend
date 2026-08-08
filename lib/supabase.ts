@@ -19,8 +19,6 @@ export interface Restaurant {
   name: string;
   cuisine: string;
   google_review_url: string | null;
-  /** Badge text on the generated story graphic; falls back to `cuisine`. */
-  location: string | null;
   photo_urls: string[] | null;
   // PROTOTYPE: hardcoded caption, remove for multi-restaurant.
   google_caption: string | null;
