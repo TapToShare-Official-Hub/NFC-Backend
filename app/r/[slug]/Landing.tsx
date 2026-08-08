@@ -26,11 +26,12 @@ const IG_STORY_DEEPLINK = 'instagram://story-camera';
 const IG_STORY_WEB_FALLBACK = 'https://www.instagram.com/stories/camera/';
 
 // PROTOTYPE: fixed demo image for Share to Story and Save Photo, instead of
-// restaurant.photo_urls. Direct i.ibb.co file (the ibb.co/RpkJKxWQ link is an
-// HTML gallery page, not an image) — it sends Access-Control-Allow-Origin: *,
-// so the browser is allowed to fetch it into a blob.
+// restaurant.photo_urls. This is the full-size 614x1080 original, NOT the
+// 102x102 square thumbnail the ibb.co/RpkJKxWQ page also links to — that one
+// is what makes the share look cropped and blurry. Sends
+// Access-Control-Allow-Origin: *, so fetching it into a blob is allowed.
 const SHARE_IMAGE_URL =
-  'https://i.ibb.co/RpkJKxWQ/Whats-App-Image-2026-08-08-at-15-46-12.jpg';
+  'https://i.ibb.co/DDHjFxnw/Whats-App-Image-2026-08-08-at-15-46-12.jpg';
 
 export default function Landing({ slug, restaurant }: Props) {
   const [active, setActive] = useState<PlatformId | null>(null);
