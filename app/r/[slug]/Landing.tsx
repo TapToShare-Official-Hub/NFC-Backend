@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   PLATFORMS,
   PLATFORM_MAP,
@@ -33,6 +33,9 @@ export default function Landing({ slug, restaurant }: Props) {
   const [notice, setNotice] = useState('');
   const [savingPhoto, setSavingPhoto] = useState(false);
   const [photoHint, setPhotoHint] = useState('');
+  // Pre-fetched so "Share to Story" can call navigator.share() synchronously —
+  // Safari drops the user gesture if you await a fetch inside the handler.
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   // Xiaohongshu notes require an image; hide the button when there are none.
   const hasPhotos = (restaurant.photo_urls?.length ?? 0) > 0;
@@ -42,9 +45,38 @@ export default function Landing({ slug, restaurant }: Props) {
   );
   // Layout groups (pure render derivation): XHS is the primary action, the
   // rest sit in a 2x2 grid.
+  const fileStem =
+    restaurant.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'photo';
   const xhs = platforms.find((p) => p.id === 'xiaohongshu');
   const others = platforms.filter((p) => p.id !== 'xiaohongshu');
   const isLoading = status === 'loading';
+
+  // Warm the photo into a File on load. The share sheet only offers Instagram
+  // when there's a file to hand it, and by the time the user taps Share we need
+  // it already in memory. A failure here is silent — share falls back to the
+  // story-camera deep link.
+  useEffect(() => {
+    if (!photoUrl) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(photoUrl, { mode: 'cors' });
+        if (!res.ok) return;
+        const blob = await res.blob();
+        if (cancelled) return;
+        const type = blob.type || 'image/jpeg';
+        const ext = type.includes('png') ? 'png' : 'jpg';
+        setPhotoFile(new File([blob], `${fileStem}.${ext}`, { type }));
+      } catch {
+        // No file — shareToStory() degrades to the deep link.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [photoUrl, fileStem]);
 
   // Tapping Xiaohongshu tries the direct-publish bridge first: on success we
   // redirect straight into the XHS app. Any failure (esp. 402 insufficient
@@ -79,18 +111,11 @@ export default function Landing({ slug, restaurant }: Props) {
     }
   }
 
-  // Instagram has no pre-fill, so there's no caption step — tapping it just
-  // drops the user straight into the story camera. If the app isn't installed
-  // the deep link does nothing, so we fall back to the web composer once we're
-  // sure the page never went to the background (i.e. the app never opened).
-  function openInstagramStory() {
-    setActive('instagram');
-    setStatus('idle');
-    setCaption('');
-    setCopied(false);
-    setNotice('');
-    setPhotoHint('');
-
+  // Last resort: drop the user into the story camera with nothing attached. If
+  // the app isn't installed the deep link does nothing, so we fall back to the
+  // web composer once we're sure the page never went to the background (i.e.
+  // the app never opened).
+  function openStoryCamera() {
     let switched = false;
     const onHide = () => {
       if (document.visibilityState === 'hidden') switched = true;
@@ -105,6 +130,49 @@ export default function Landing({ slug, restaurant }: Props) {
         window.location.href = IG_STORY_WEB_FALLBACK;
       }
     }, 1200);
+  }
+
+  // True when the OS share sheet can take our photo. Without a file the sheet
+  // has nothing Instagram will accept, so we don't offer the button at all.
+  function canShareStory() {
+    return (
+      !!photoFile &&
+      typeof navigator.share === 'function' &&
+      !!navigator.canShare?.({ files: [photoFile] })
+    );
+  }
+
+  // "Share to Story": hands the photo to the OS share sheet, where the user
+  // picks Instagram → Stories. Instagram accepts no text through the sheet
+  // (and iOS silently drops text bundled with a file), so the caption rides
+  // along on the clipboard for the user to paste as a text sticker.
+  async function shareToStory() {
+    // Clipboard write goes first, while the tap still counts as a user gesture.
+    navigator.clipboard?.writeText(caption).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      },
+      () => {
+        // Denied — the Copy button is still right there.
+      },
+    );
+
+    if (!photoFile || !canShareStory()) {
+      setPhotoHint('Save the photo, then pick it in your story.');
+      openStoryCamera();
+      return;
+    }
+
+    try {
+      await navigator.share({ files: [photoFile] });
+      setPhotoHint('In Instagram: pick Stories, then paste the caption.');
+    } catch (err) {
+      // The user backing out of the sheet is not an error.
+      if ((err as Error)?.name === 'AbortError') return;
+      console.error(err);
+      openStoryCamera();
+    }
   }
 
   async function generate(platform: PlatformId) {
@@ -246,13 +314,7 @@ export default function Landing({ slug, restaurant }: Props) {
                 className={`grid-btn plat-${p.id}${active_ ? ' working' : ''}${
                   off ? ' is-off' : ''
                 }`}
-                onClick={
-                  off
-                    ? undefined
-                    : p.id === 'instagram'
-                      ? openInstagramStory
-                      : () => generate(p.id)
-                }
+                onClick={off ? undefined : () => generate(p.id)}
                 disabled={isLoading || off}
                 aria-disabled={off || undefined}
               >
@@ -317,15 +379,32 @@ export default function Landing({ slug, restaurant }: Props) {
             >
               {copied ? '✓ Copied' : 'Copy'}
             </button>
-            <a
-              className="action-btn secondary"
-              href={openUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {activePlatform.openLabel}
-            </a>
+            {activePlatform.id === 'instagram' ? (
+              <button
+                type="button"
+                className="action-btn secondary"
+                onClick={shareToStory}
+              >
+                Share to Story
+              </button>
+            ) : (
+              <a
+                className="action-btn secondary"
+                href={openUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {activePlatform.openLabel}
+              </a>
+            )}
           </div>
+
+          {activePlatform.id === 'instagram' && (
+            <p className="photo-hint">
+              Pick Instagram → Stories in the share sheet, then paste the
+              caption as a text sticker.
+            </p>
+          )}
 
           {photoUrl && (
             <button
