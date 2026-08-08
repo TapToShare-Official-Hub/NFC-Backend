@@ -33,9 +33,11 @@ export default function Landing({ slug, restaurant }: Props) {
   const [notice, setNotice] = useState('');
   const [savingPhoto, setSavingPhoto] = useState(false);
   const [photoHint, setPhotoHint] = useState('');
-  // Pre-fetched so "Share to Story" can call navigator.share() synchronously —
-  // Safari drops the user gesture if you await a fetch inside the handler.
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  // The rendered 1080x1920 story graphic, pre-fetched so "Share to Story" can
+  // call navigator.share() synchronously — Safari drops the user gesture if you
+  // await a fetch inside the handler.
+  const [storyFile, setStoryFile] = useState<File | null>(null);
+  const [storyPreview, setStoryPreview] = useState<string | null>(null);
 
   // Xiaohongshu notes require an image; hide the button when there are none.
   const hasPhotos = (restaurant.photo_urls?.length ?? 0) > 0;
@@ -51,23 +53,25 @@ export default function Landing({ slug, restaurant }: Props) {
   const others = platforms.filter((p) => p.id !== 'xiaohongshu');
   const isLoading = status === 'loading';
 
-  // Warm the photo into a File on load. The share sheet only offers Instagram
-  // when there's a file to hand it, and by the time the user taps Share we need
-  // it already in memory. A failure here is silent — share falls back to the
-  // story-camera deep link.
+  // Warm the story graphic into a File on load. The share sheet only offers
+  // Instagram when there's a file to hand it, and by the time the user taps
+  // Share we need it already in memory. A failure here is silent —
+  // shareToStory() falls back to the story-camera deep link.
   useEffect(() => {
-    if (!photoUrl) return;
     let cancelled = false;
+    let objectUrl: string | null = null;
 
     (async () => {
       try {
-        const res = await fetch(photoUrl, { mode: 'cors' });
+        const res = await fetch(`/api/story?slug=${encodeURIComponent(slug)}`);
         if (!res.ok) return;
         const blob = await res.blob();
         if (cancelled) return;
-        const type = blob.type || 'image/jpeg';
-        const ext = type.includes('png') ? 'png' : 'jpg';
-        setPhotoFile(new File([blob], `${fileStem}.${ext}`, { type }));
+        setStoryFile(
+          new File([blob], `${fileStem}-story.png`, { type: 'image/png' }),
+        );
+        objectUrl = URL.createObjectURL(blob);
+        setStoryPreview(objectUrl);
       } catch {
         // No file — shareToStory() degrades to the deep link.
       }
@@ -75,8 +79,9 @@ export default function Landing({ slug, restaurant }: Props) {
 
     return () => {
       cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [photoUrl, fileStem]);
+  }, [slug, fileStem]);
 
   // Tapping Xiaohongshu tries the direct-publish bridge first: on success we
   // redirect straight into the XHS app. Any failure (esp. 402 insufficient
@@ -132,17 +137,17 @@ export default function Landing({ slug, restaurant }: Props) {
     }, 1200);
   }
 
-  // True when the OS share sheet can take our photo. Without a file the sheet
-  // has nothing Instagram will accept, so we don't offer the button at all.
+  // True when the OS share sheet can take our graphic. Without a file the sheet
+  // has nothing Instagram will accept, so we fall back to the deep link.
   function canShareStory() {
     return (
-      !!photoFile &&
+      !!storyFile &&
       typeof navigator.share === 'function' &&
-      !!navigator.canShare?.({ files: [photoFile] })
+      !!navigator.canShare?.({ files: [storyFile] })
     );
   }
 
-  // "Share to Story": hands the photo to the OS share sheet, where the user
+  // "Share to Story": hands the story graphic to the OS share sheet, where the user
   // picks Instagram → Stories. Instagram accepts no text through the sheet
   // (and iOS silently drops text bundled with a file), so the caption rides
   // along on the clipboard for the user to paste as a text sticker.
@@ -158,14 +163,14 @@ export default function Landing({ slug, restaurant }: Props) {
       },
     );
 
-    if (!photoFile || !canShareStory()) {
+    if (!storyFile || !canShareStory()) {
       setPhotoHint('Save the photo, then pick it in your story.');
       openStoryCamera();
       return;
     }
 
     try {
-      await navigator.share({ files: [photoFile] });
+      await navigator.share({ files: [storyFile] });
       setPhotoHint('In Instagram: pick Stories, then paste the caption.');
     } catch (err) {
       // The user backing out of the sheet is not an error.
@@ -400,10 +405,20 @@ export default function Landing({ slug, restaurant }: Props) {
           </div>
 
           {activePlatform.id === 'instagram' && (
-            <p className="photo-hint">
-              Pick Instagram → Stories in the share sheet, then paste the
-              caption as a text sticker.
-            </p>
+            <>
+              {storyPreview && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  className="story-preview"
+                  src={storyPreview}
+                  alt="Your Instagram story graphic"
+                />
+              )}
+              <p className="photo-hint">
+                Pick Instagram → Stories in the share sheet, then paste the
+                caption as a text sticker.
+              </p>
+            </>
           )}
 
           {photoUrl && (

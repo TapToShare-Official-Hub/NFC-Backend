@@ -366,6 +366,18 @@ body {
   cursor: default;
 }
 
+/* Preview of the generated 1080x1920 story graphic. Capped by height so the
+   9:16 frame can't push the Share button off a phone screen. */
+.story-preview {
+  display: block;
+  margin: 14px auto 0;
+  max-height: 320px;
+  width: auto;
+  max-width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+}
+
 .photo-hint {
   margin: 10px 0 0;
   text-align: center;

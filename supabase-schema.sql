@@ -20,6 +20,10 @@ create table if not exists public.restaurants (
 -- photos table — one text[] column is enough for the MVP.
 alter table public.restaurants add column if not exists photo_urls text[];
 
+-- Shown in the location badge on the generated Instagram story graphic
+-- (/api/story). Nullable: the badge falls back to `cuisine` when it's unset.
+alter table public.restaurants add column if not exists location text;
+
 -- PROTOTYPE: hardcoded caption, remove for multi-restaurant.
 -- For the demo, the Google Review button serves this fixed caption verbatim
 -- instead of calling OpenAI. Null → fall back to normal generation.
