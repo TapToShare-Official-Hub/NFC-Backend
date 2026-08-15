@@ -15,7 +15,11 @@ export default async function RestaurantPage({
 
   const { data: restaurant, error } = await supabase
     .from('restaurants')
-    .select('name, cuisine, google_review_url, photo_urls, logo_url')
+    // NOTE: `logo_url` is deliberately absent. PostgREST fails the whole query
+    // if any selected column is missing, which turns a live restaurant into
+    // "Card not linked yet". Add it here only once the column exists in prod
+    // (see supabase-schema.sql); until then logos come from FALLBACK_LOGOS.
+    .select('name, cuisine, google_review_url, photo_urls')
     .eq('slug', slug)
     .single<Restaurant>();
 

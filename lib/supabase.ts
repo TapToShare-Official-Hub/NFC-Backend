@@ -20,7 +20,9 @@ export interface Restaurant {
   cuisine: string;
   google_review_url: string | null;
   photo_urls: string[] | null;
-  logo_url: string | null;
+  // Optional: only present once the column exists in prod and the landing
+  // page's select asks for it. Absent → FALLBACK_LOGOS supplies the logo.
+  logo_url?: string | null;
   // PROTOTYPE: hardcoded caption, remove for multi-restaurant.
   google_caption: string | null;
 }
