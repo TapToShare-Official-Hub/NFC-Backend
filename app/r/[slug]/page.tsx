@@ -15,7 +15,7 @@ export default async function RestaurantPage({
 
   const { data: restaurant, error } = await supabase
     .from('restaurants')
-    .select('name, cuisine, google_review_url, photo_urls')
+    .select('name, cuisine, google_review_url, photo_urls, logo_url')
     .eq('slug', slug)
     .single<Restaurant>();
 

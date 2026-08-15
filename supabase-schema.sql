@@ -20,6 +20,11 @@ create table if not exists public.restaurants (
 -- photos table — one text[] column is enough for the MVP.
 alter table public.restaurants add column if not exists photo_urls text[];
 
+-- Optional restaurant logo, shown in the landing page footer so a tapped card
+-- feels like the restaurant's own page. Nullable: no logo → footer renders the
+-- plain "Powered by" line, exactly as before.
+alter table public.restaurants add column if not exists logo_url text;
+
 -- PROTOTYPE: hardcoded caption, remove for multi-restaurant.
 -- For the demo, the Google Review button serves this fixed caption verbatim
 -- instead of calling OpenAI. Null → fall back to normal generation.

@@ -31,6 +31,13 @@ const IG_STORY_WEB_FALLBACK = 'https://www.instagram.com/stories/camera/';
 // Instagram's share extension is unreliable with image/webp.
 const SHARE_IMAGE_URL = '/hardcode-ig.jpg';
 
+// PROTOTYPE: per-slug logo fallback so the pilot restaurant is branded without
+// a DB round-trip. `restaurant.logo_url` wins when set — that's the path every
+// future client should use; this map goes away once they're all seeded.
+const FALLBACK_LOGOS: Partial<Record<string, string>> = {
+  bunnywokandgrill: '/Bunny-Wok-Logo.webp',
+};
+
 export default function Landing({ slug, restaurant }: Props) {
   const [active, setActive] = useState<PlatformId | null>(null);
   const [status, setStatus] = useState<Status>('idle');
@@ -274,6 +281,7 @@ export default function Landing({ slug, restaurant }: Props) {
     }
   }
 
+  const logoUrl = restaurant.logo_url ?? FALLBACK_LOGOS[slug] ?? null;
   const activePlatform = active ? PLATFORM_MAP[active] : null;
   const openUrl = active ? resolveOpenUrl(active, restaurant) : '#';
 
@@ -443,7 +451,13 @@ export default function Landing({ slug, restaurant }: Props) {
         </section>
       )}
 
-      <footer className="footer">Powered by Tap to Share</footer>
+      <footer className="footer">
+        {logoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="footer-logo" src={logoUrl} alt={restaurant.name} />
+        )}
+        <span className="footer-note">Powered by Tap to Share</span>
+      </footer>
     </main>
   );
 }

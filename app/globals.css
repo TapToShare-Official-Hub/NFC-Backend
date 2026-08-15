@@ -461,9 +461,29 @@ body {
 .footer {
   margin-top: auto;
   padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   text-align: center;
   color: var(--muted);
   font-size: 12px;
+}
+
+/* Sized by height so wordmarks and square marks both land at a sensible
+   optical size; width follows the aspect ratio, capped on narrow phones.
+   Rounded because these are photographed signage shots, not transparent
+   marks — square corners read as an un-styled screenshot. */
+.footer-logo {
+  height: 150px;
+  width: auto;
+  max-width: 70%;
+  object-fit: contain;
+  border-radius: 16px;
+}
+
+.footer-note {
+  opacity: 0.75;
 }
 
 /* ---- Fallback / info pages ---- */
