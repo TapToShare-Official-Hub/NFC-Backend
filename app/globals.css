@@ -47,31 +47,65 @@ body {
 /* ---- Header ---- */
 .header {
   text-align: center;
-  margin-bottom: 18px;
+  margin-bottom: 30px;
 }
 
 .eyebrow {
-  font-size: 12px;
-  letter-spacing: 0.16em;
+  font-size: 11px;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--muted);
-  font-weight: 700;
-  margin: 0 0 6px;
+  font-weight: 600;
+  /* Uppercase + wide tracking adds a trailing gap on the last letter; the
+     negative right indent re-centres the line optically. */
+  margin: 0 0 12px;
+  text-indent: 0.26em;
+  opacity: 0.8;
 }
 
+/* Serif for the restaurant name only — it reads as signage rather than UI
+   chrome, which is the one place on this page that should feel like the
+   restaurant and not like our product. CJK fallbacks stay in the stack so a
+   Chinese name still renders natively rather than as tofu. */
 .title {
-  font-size: 30px;
-  line-height: 1.12;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-family:
+    'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia,
+    'Songti SC', 'Noto Serif CJK SC', serif;
+  font-size: 34px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.005em;
   margin: 0;
   color: var(--text);
 }
 
+/* Brand mark sits between the name and the subtitle. Sized by height so a
+   wordmark and a square mark both land at a similar optical weight; rounded
+   because these are photographed signage shots, not transparent logos. */
+.brand-logo {
+  display: block;
+  height: 172px;
+  width: auto;
+  max-width: 78%;
+  margin: 20px auto 0;
+  object-fit: contain;
+  border-radius: 20px;
+  box-shadow: 0 6px 20px rgba(23, 19, 15, 0.14);
+}
+
 .subtitle {
-  margin: 8px 0 0;
+  margin: 20px 0 0;
   color: var(--muted);
   font-size: 15px;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+}
+
+/* Narrow phones: keep the logo from eating the fold. */
+@media (max-height: 700px) {
+  .brand-logo {
+    height: 132px;
+  }
 }
 
 /* ---- Prompt line ---- */
@@ -92,32 +126,33 @@ body {
 
 /* Shared button reset */
 .primary-btn,
-.grid-btn {
+.plat-btn {
   border: none;
   border-radius: var(--radius);
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   color: #fff;
   display: flex;
   align-items: center;
+  text-decoration: none;
   transition:
     transform 0.08s ease,
     opacity 0.15s ease;
 }
 
 .primary-btn:active,
-.grid-btn:active {
+.plat-btn:active {
   transform: scale(0.985);
 }
 
 .primary-btn:disabled,
-.grid-btn:disabled {
+.plat-btn:disabled {
   cursor: default;
 }
 
 /* Dim the buttons that aren't the one being worked on. */
 .buttons.is-loading .primary-btn:disabled,
-.buttons.is-loading .grid-btn:disabled {
+.buttons.is-loading .plat-btn:disabled {
   opacity: 0.4;
 }
 
@@ -132,8 +167,16 @@ body {
   gap: 14px;
   padding: 0 22px;
   font-size: 19px;
-  background: #ff2442;
-  box-shadow: 0 8px 20px rgba(255, 36, 66, 0.28);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.18),
+      rgba(255, 255, 255, 0) 58%
+    ),
+    linear-gradient(135deg, #ff5a6e 0%, #ff2442 50%, #e00b29 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 10px 22px rgba(255, 36, 66, 0.34);
 }
 
 .primary-btn .label-zh {
@@ -160,7 +203,13 @@ body {
   gap: 12px;
 }
 
-.grid-btn {
+/* With an odd number of platforms the last one would sit alone in a half-width
+   cell and read as a layout bug; span it across both columns instead. */
+.grid .plat-btn:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.plat-btn {
   min-width: 0;
   min-height: 64px;
   gap: 10px;
@@ -171,13 +220,32 @@ body {
   box-shadow: 0 4px 12px rgba(23, 19, 15, 0.14);
 }
 
-.grid-btn > span {
+.plat-label {
   min-width: 0;
   overflow-wrap: break-word;
 }
 
+/* The colour buttons share one recipe so they read as a set:
+     1. a top sheen — the glossy highlight an app icon has
+     2. the platform's real brand gradient underneath
+     3. an inset hairline that catches light along the top edge
+     4. a glow tinted to the brand, not a neutral grey drop shadow
+   Flat brand hex looks dull next to Instagram's gradient; this is what makes
+   Facebook and WhatsApp hold their own beside it. */
+.plat-instagram,
+.plat-facebook,
+.plat-whatsapp {
+  border: none;
+}
+
 .plat-instagram {
-  background: radial-gradient(
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.16),
+      rgba(255, 255, 255, 0) 58%
+    ),
+    radial-gradient(
       circle at 30% 107%,
       #fdf497 0%,
       #fdf497 5%,
@@ -185,25 +253,53 @@ body {
       #d6249f 60%,
       #285aeb 90%
     );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 8px 18px rgba(214, 36, 159, 0.32);
 }
 
+/* Facebook's own icon gradient: light azure top-right into deep blue. */
 .plat-facebook {
-  background: #1877f2;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.18),
+      rgba(255, 255, 255, 0) 58%
+    ),
+    linear-gradient(135deg, #19afff 0%, #0866ff 52%, #0043ce 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 8px 18px rgba(8, 102, 255, 0.36);
 }
 
 .plat-tiktok {
   background: #000000;
 }
 
+/* WhatsApp — brand green, same shape as every other platform button. */
+/* WhatsApp's icon green: bright lime top, deeper emerald at the base. */
+.plat-whatsapp {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.2),
+      rgba(255, 255, 255, 0) 58%
+    ),
+    linear-gradient(135deg, #4ae06e 0%, #25d366 48%, #0da750 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 8px 18px rgba(37, 211, 102, 0.36);
+}
+
 /* Temporarily disabled platforms — visibly inactive, no tap response. */
-.grid-btn.is-off {
+.plat-btn.is-off {
   opacity: 0.45;
   filter: grayscale(0.4);
   box-shadow: none;
   cursor: default;
 }
 
-.grid-btn.is-off:active {
+.plat-btn.is-off:active {
   transform: none;
 }
 
@@ -461,29 +557,10 @@ body {
 .footer {
   margin-top: auto;
   padding-top: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
   text-align: center;
   color: var(--muted);
   font-size: 12px;
-}
-
-/* Sized by height so wordmarks and square marks both land at a sensible
-   optical size; width follows the aspect ratio, capped on narrow phones.
-   Rounded because these are photographed signage shots, not transparent
-   marks — square corners read as an un-styled screenshot. */
-.footer-logo {
-  height: 150px;
-  width: auto;
-  max-width: 70%;
-  object-fit: contain;
-  border-radius: 16px;
-}
-
-.footer-note {
-  opacity: 0.75;
+  letter-spacing: 0.04em;
 }
 
 /* ---- Fallback / info pages ---- */

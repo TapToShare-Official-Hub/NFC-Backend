@@ -25,6 +25,16 @@ alter table public.restaurants add column if not exists photo_urls text[];
 -- plain "Powered by" line, exactly as before.
 alter table public.restaurants add column if not exists logo_url text;
 
+-- Optional WhatsApp contact number for the "Message us on WhatsApp" button.
+-- Store international format without "+" (e.g. 60123456789); a leading-0 local
+-- Malaysian number is normalised in code. Null → the button is hidden.
+alter table public.restaurants add column if not exists whatsapp_number text;
+
+-- Optional link to the restaurant's own Facebook page, used by the Facebook
+-- button's "Open Facebook" destination. Null → the button is hidden, because
+-- facebook.com's generic homepage is a dead end on a client's page.
+alter table public.restaurants add column if not exists facebook_url text;
+
 -- PROTOTYPE: hardcoded caption, remove for multi-restaurant.
 -- For the demo, the Google Review button serves this fixed caption verbatim
 -- instead of calling OpenAI. Null → fall back to normal generation.

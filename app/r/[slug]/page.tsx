@@ -13,15 +13,37 @@ export default async function RestaurantPage({
 }) {
   const { slug } = await params;
 
-  const { data: restaurant, error } = await supabase
-    .from('restaurants')
-    // NOTE: `logo_url` is deliberately absent. PostgREST fails the whole query
-    // if any selected column is missing, which turns a live restaurant into
-    // "Card not linked yet". Add it here only once the column exists in prod
-    // (see supabase-schema.sql); until then logos come from FALLBACK_LOGOS.
-    .select('name, cuisine, google_review_url, photo_urls')
-    .eq('slug', slug)
-    .single<Restaurant>();
+  // Columns present since launch — these must always exist.
+  const BASE_COLUMNS = 'name, cuisine, google_review_url, photo_urls';
+  // Columns added later. PostgREST fails the ENTIRE query if any selected
+  // column is missing, so folding these into BASE_COLUMNS means a deploy that
+  // lands before its migration turns every live restaurant into "Card not
+  // linked yet". Asking for them separately makes an un-run migration degrade
+  // to "no logo, no WhatsApp/Facebook button" instead of taking the page down.
+  const OPTIONAL_COLUMNS = 'logo_url, whatsapp_number, facebook_url';
+
+  const [base, optional] = await Promise.all([
+    supabase
+      .from('restaurants')
+      .select(BASE_COLUMNS)
+      .eq('slug', slug)
+      .single<Restaurant>(),
+    supabase
+      .from('restaurants')
+      .select(OPTIONAL_COLUMNS)
+      .eq('slug', slug)
+      .maybeSingle<Partial<Restaurant>>(),
+  ]);
+
+  const { error } = base;
+  if (optional.error) {
+    // Almost always 42703 (column does not exist) = migration not run yet.
+    console.warn('[slug-lookup] optional columns unavailable:', optional.error.message);
+  }
+
+  const restaurant = base.data
+    ? { ...base.data, ...(optional.data ?? {}) }
+    : null;
 
   // `.single()` returns PGRST116 when no row matches — that's a genuine
   // "unknown slug", so we fall through to the fallback below. Anything else

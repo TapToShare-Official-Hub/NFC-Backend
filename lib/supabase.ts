@@ -20,9 +20,11 @@ export interface Restaurant {
   cuisine: string;
   google_review_url: string | null;
   photo_urls: string[] | null;
-  // Optional: only present once the column exists in prod and the landing
-  // page's select asks for it. Absent → FALLBACK_LOGOS supplies the logo.
+  // Optional: fetched separately by the landing page and absent until the
+  // matching migration has run in prod (see supabase-schema.sql).
   logo_url?: string | null;
+  whatsapp_number?: string | null;
+  facebook_url?: string | null;
   // PROTOTYPE: hardcoded caption, remove for multi-restaurant.
   google_caption: string | null;
 }
