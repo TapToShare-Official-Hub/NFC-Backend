@@ -33,5 +33,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'no_photo' }, { status: 404 });
   }
 
-  return NextResponse.json({ url: claimed[0] });
+  // Just the url — claimPhotos returns { url, dish } and nesting the whole
+  // object here hands the client a non-string src.
+  return NextResponse.json({ url: claimed[0].url });
 }

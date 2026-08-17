@@ -47,11 +47,13 @@ const ANGLES_ZH = [
 const BANNED_EN =
   'Never use: "nestled in", "hidden gem", "a symphony of", "burst of flavour", ' +
   '"culinary journey", "foodie heaven", "must-try", "look no further", ' +
-  '"whether you\'re", "elevate", "indulge in".';
+  '"whether you\'re", "elevate", "indulge in", "to die for", "absolutely ' +
+  'incredible", "blew me away", "obsessed".';
 
 const BANNED_ZH =
-  '禁止使用这些烂大街的表达：绝绝子、YYDS、人间美味、舌尖上的、不容错过、' +
-  '强烈安利、宝藏小店、天花板、爱了爱了。';
+  '禁止使用这些烂大街或夸张的表达：绝绝子、YYDS、人间美味、舌尖上的、' +
+  '不容错过、强烈安利、宝藏小店、天花板、爱了爱了、超级好吃、太赞了、' +
+  '好吃到哭、无敌、必吃、yyds、满满的幸福感。';
 
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -132,6 +134,8 @@ export function buildPrompt(
         system:
           '你是一个普通的小红书用户，刚刚吃完一顿饭，随手发一条笔记。' +
           '你不是文案写手，也不是广告号——写得像真人，可以有口语、有停顿、有个人偏好。' +
+          '语气要克制、平实，像跟朋友随口说一句"还不错""可以"，' +
+          '不要激动，不要吹爆，不要用感叹号堆情绪。真实的推荐是淡淡的。' +
           '你只输出一个 JSON 对象，格式为 {"title": "...", "content": "..."}，' +
           '不要加任何解释、markdown 代码块或前后缀。',
         user:
@@ -145,7 +149,10 @@ export function buildPrompt(
           '- 只能描述"照片里的菜"的口感和样子。其他招牌菜最多用' +
           '"他们家好像还有…""听说…也很有名"这种口气带一句，绝对不能写成你吃过\n' +
           '- title：一个像真人会写的短标题（最多约 18 个汉字），不要标题党套路\n' +
-          '- content：2-4 句，像发给朋友一样自然，emoji 少而准（0-3 个）\n' +
+          '- content：2-4 句，像发给朋友一样自然，emoji 少而准（0-2 个）\n' +
+          '- 语气克制：用"还不错""挺好的""可以试试"这种平实说法，' +
+          '不要用"超级""绝了""太好吃了""满满的满足感""停不下来"这类夸张表达\n' +
+          '- 最多一个感叹号；顺便把地点说清楚（在哪一区、附近什么地标）\n' +
           '- 结尾放 4-6 个话题标签（#号），其中至少一个跟地点或菜系相关\n' +
           `- ${BANNED_ZH}\n` +
           '- 严格只返回 JSON 对象，不要有多余文字',
@@ -156,7 +163,9 @@ export function buildPrompt(
         system:
           'You are a real person posting about a meal you just had — not a ' +
           'copywriter and not a brand account. Write the way someone actually ' +
-          'captions a photo: short, specific, a little offhand. Output only the ' +
+          'captions a photo: short, specific, a little offhand. Keep it ' +
+          'understated — "pretty good", "not bad", "worth a try" — never ' +
+          'breathless. Real recommendations are quiet. Output only the ' +
           'caption text — no explanations, no quotation marks, no preamble.',
         user:
           `Write an Instagram caption using only these facts:\n${en}\n\n` +
@@ -168,7 +177,8 @@ export function buildPrompt(
           'side of the road something is on — naming one landmark is enough\n' +
           '- Only the dish in the photo may be described as eaten. Other items ' +
           'get at most a passing "they\'re also known for…"\n' +
-          '- 1-2 short lines, 0-2 emoji\n' +
+          '- 1-2 short lines, 0-2 emoji, at most one exclamation mark\n' +
+          '- Understated tone. Say where it is (area or a landmark)\n' +
           '- End with 5-7 hashtags, at least one tied to the location\n' +
           `- ${BANNED_EN}`,
       };

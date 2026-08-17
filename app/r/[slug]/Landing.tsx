@@ -340,8 +340,12 @@ export default function Landing({ slug, restaurant }: Props) {
       });
       if (!res.ok) return; // 404 = no pool, keep the demo image.
 
-      const data = (await res.json()) as { url?: string };
-      if (!data.url || data.url === shareUrl) return;
+      const data = (await res.json()) as { url?: unknown };
+      // Guard the type, not just the presence: a non-string here silently
+      // becomes src="[object Object]" and the customer sees a broken image.
+      if (typeof data.url !== 'string' || !data.url || data.url === shareUrl) {
+        return;
+      }
 
       // Drop the previous file first so a fast tap can't share the old photo.
       setPhotoFile(null);
