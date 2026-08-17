@@ -2,68 +2,9 @@ import { NextResponse, after } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { generateCaption } from '@/lib/caption';
 import { logXhsPublish } from '@/lib/log';
+import { PHOTOS_PER_POST, claimPhotos, releasePhotos } from '@/lib/photos';
 
 const MYAIBOT_ENDPOINT = 'https://www.myaibot.vip/api/rednote/publish';
-
-// Photos handed to one post. 1 maximises posts from a fixed pool (90 photos =
-// 90 posts); raising it to 3 makes carousels but cuts the pool to 30 posts.
-const PHOTOS_PER_POST = 1;
-
-// true = least-recently-used rotation, the pool never runs dry. Correct for a
-// small pool (a 6-photo trial). Set false once a client's pool is big enough
-// that a customer seeing a repeated photo would look sloppy.
-const RECYCLE_PHOTOS = true;
-
-/**
- * Take the next unused photo(s) for this restaurant, marking them used so no
- * customer is ever handed a photo another customer already posted.
- *
- * Returns [] when the pool is exhausted, and null when the photo pool hasn't
- * been set up at all — the caller treats those differently: exhausted is a
- * real end state, un-migrated falls back to the legacy photo_urls column.
- */
-async function claimPhotos(slug: string): Promise<string[] | null> {
-  // SKIP LOCKED returns nothing when every candidate row is momentarily locked
-  // by a simultaneous tap. In recycle mode the pool can never truly be empty,
-  // so an empty result there means contention, not exhaustion — retry rather
-  // than telling the customer we've run out. Measured: 6 parallel claims on a
-  // 6-photo pool produced 5 photos and one empty result.
-  const attempts = RECYCLE_PHOTOS ? 3 : 1;
-
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    const { data, error } = await supabase.rpc('claim_photos', {
-      p_slug: slug,
-      p_count: PHOTOS_PER_POST,
-      p_recycle: RECYCLE_PHOTOS,
-    });
-
-    if (error) {
-      // 42883 = function does not exist → migration not run yet.
-      console.warn('[xhs/publish] claim_photos unavailable:', error.message);
-      return null;
-    }
-
-    const urls = (data as { url: string }[] | null)?.map((r) => r.url) ?? [];
-    if (urls.length) return urls;
-
-    // Brief, growing pause so the competing transaction can commit.
-    if (attempt < attempts - 1) {
-      await new Promise((r) => setTimeout(r, 40 * (attempt + 1)));
-    }
-  }
-
-  return [];
-}
-
-/** Best-effort: never let a release failure mask the original error. */
-async function releasePhotos(slug: string, urls: string[]): Promise<void> {
-  if (!urls.length) return;
-  try {
-    await supabase.rpc('release_photos', { p_slug: slug, p_urls: urls });
-  } catch (err) {
-    console.error('[xhs/publish] failed to release photos', err);
-  }
-}
 
 export async function POST(req: Request) {
   let body: unknown;

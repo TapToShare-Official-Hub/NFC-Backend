@@ -163,11 +163,25 @@ grant execute on function public.release_photos(text, text[])     to anon;
 create table if not exists public.taps (
   id                uuid primary key default gen_random_uuid(),
   slug              text not null,
-  event_type        text not null check (event_type in ('tap', 'caption')),
-  platform          text,                    -- set only for 'caption' events
+  event_type        text not null check (event_type in ('tap', 'caption', 'click')),
+  platform          text,                    -- set for 'caption' and 'click'
   restaurant_found  boolean,                 -- was the slug a known restaurant?
   created_at        timestamptz not null default now()
 );
+
+-- 'click' = the customer pressed a platform button. Recorded for EVERY button,
+-- including the ones that leave the page instantly (Facebook, WhatsApp) and
+-- the one that never calls the server (Instagram). Without it the only
+-- platforms that ever appear are the ones that happen to hit an API, which
+-- makes "which platform do customers prefer" quietly wrong.
+--
+-- Run on an existing database to widen the constraint:
+alter table public.taps drop constraint if exists taps_event_type_check;
+alter table public.taps add  constraint taps_event_type_check
+  check (event_type in ('tap', 'caption', 'click'));
+
+create index if not exists taps_slug_event_idx
+  on public.taps (slug, event_type);
 
 create index if not exists taps_slug_idx        on public.taps (slug);
 create index if not exists taps_created_at_idx   on public.taps (created_at);

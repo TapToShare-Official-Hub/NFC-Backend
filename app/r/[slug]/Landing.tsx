@@ -39,20 +39,58 @@ const DISABLED_PLATFORMS = new Set<PlatformId>([]);
 // Not rendered as caption platforms. TikTok is switched off entirely; Facebook
 // is still on the page but as a direct link to the restaurant's own page (see
 // the Facebook button below), so it must not reach caption generation.
-const HIDDEN_PLATFORMS = new Set<PlatformId>(['tiktok', 'facebook']);
+const HIDDEN_PLATFORMS = new Set<PlatformId>([
+  'tiktok',
+  'facebook',
+  // Google sends people straight to the review form. Writing the review is the
+  // whole point — a pre-written caption to paste would be a fake review, and
+  // there's no photo to attach either, so no caption and no Save Photo.
+  'google',
+]);
 
 // Pre-filled into the WhatsApp chat box. The customer still taps send.
 const WA_MESSAGE = "Hello I'd like to make a reservation.";
+
+/**
+ * Record which button was pressed, without delaying the tap by a millisecond.
+ *
+ * sendBeacon is the only thing that reliably survives the page navigating
+ * away, which is exactly what Facebook and WhatsApp do — a normal fetch gets
+ * cancelled mid-flight. keepalive is the fallback for browsers without it.
+ * Failure is silent by design: analytics must never break a customer's tap.
+ */
+function trackClick(slug: string, platform: string) {
+  try {
+    const body = JSON.stringify({ slug, platform });
+
+    if (typeof navigator.sendBeacon === 'function') {
+      navigator.sendBeacon(
+        '/api/track',
+        new Blob([body], { type: 'application/json' }),
+      );
+      return;
+    }
+
+    void fetch('/api/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Never let tracking interfere with the button working.
+  }
+}
 
 // Opens the Instagram story composer directly. No content is passed — Instagram
 // has no pre-fill; this only launches the app on the right screen.
 const IG_STORY_DEEPLINK = 'instagram://story-camera';
 const IG_STORY_WEB_FALLBACK = 'https://www.instagram.com/stories/camera/';
 
-// PROTOTYPE: fixed demo image for Share to Story and Save Photo, instead of
-// restaurant.photo_urls. Served from public/ so it's same-origin (no CORS to
-// negotiate) and versioned with the code. JPEG rather than the WebP original:
-// Instagram's share extension is unreliable with image/webp.
+// Demo fallback only. Restaurants with a photo pool get a rotating photo from
+// it instead (see openInstagram); this is what everyone else still shares.
+// JPEG rather than the WebP original: Instagram's share extension is
+// unreliable with image/webp.
 const SHARE_IMAGE_URL = '/hardcode-ig.jpg';
 
 // PROTOTYPE: per-slug logo fallback so the pilot restaurant is branded without
@@ -73,6 +111,10 @@ export default function Landing({ slug, restaurant }: Props) {
   // Pre-fetched so "Share to Story" can call navigator.share() synchronously —
   // Safari drops the user gesture if you await a fetch inside the handler.
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  // Which image the Instagram panel is currently offering. Starts as the demo
+  // image and is replaced by a pool photo once the customer taps Instagram.
+  const [shareUrl, setShareUrl] = useState(SHARE_IMAGE_URL);
+  const [progress, setProgress] = useState(0);
 
   // Xiaohongshu notes require an image; hide the button when there are none.
   const hasPhotos = (restaurant.photo_urls?.length ?? 0) > 0;
@@ -91,9 +133,10 @@ export default function Landing({ slug, restaurant }: Props) {
     restaurant.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'photo';
   const byId = (id: PlatformId) => platforms.find((p) => p.id === id);
   const xhs = byId('xiaohongshu');
-  const pairRow = (['instagram', 'google'] as const)
-    .map(byId)
-    .filter((p): p is NonNullable<typeof p> => Boolean(p));
+  const instagram = byId('instagram');
+  // Always resolvable: falls back to a Google search for the restaurant when
+  // google_review_url isn't set.
+  const googleUrl = resolveOpenUrl('google', restaurant);
   const isLoading = status === 'loading';
 
   // Warm the share image into a File on load. The share sheet only offers
@@ -106,12 +149,16 @@ export default function Landing({ slug, restaurant }: Props) {
 
     (async () => {
       try {
-        const res = await fetch(SHARE_IMAGE_URL);
+        const res = await fetch(shareUrl);
         if (!res.ok) return;
         const blob = await res.blob();
         if (cancelled) return;
         const type = blob.type || 'image/jpeg';
-        const ext = type.includes('png') ? 'png' : 'jpg';
+        const ext = type.includes('png')
+          ? 'png'
+          : type.includes('webp')
+            ? 'webp'
+            : 'jpg';
         setPhotoFile(new File([blob], `${fileStem}.${ext}`, { type }));
       } catch {
         // No file — shareToStory() degrades to the deep link.
@@ -121,14 +168,43 @@ export default function Landing({ slug, restaurant }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [fileStem]);
+  }, [fileStem, shareUrl]);
+
+  // Simulated progress. Nothing in this flow reports real progress — the wait
+  // is one opaque await (OpenAI writes the caption, then the myaibot bridge
+  // builds the note), so a truthful bar is impossible. Instead we ease toward
+  // ~88% across the expected duration and creep after that, capped at 99 so it
+  // can never claim to be finished before it is. The handlers set 100 when the
+  // work actually completes.
+  //
+  // The point is drop-off: a customer standing in a restaurant who sees a
+  // frozen screen leaves. A moving number reads as "working", not "broken".
+  useEffect(() => {
+    if (!isLoading) return;
+
+    // Xiaohongshu runs caption generation AND the publish bridge (~10s);
+    // a caption on its own is roughly half that.
+    const expectedMs = active === 'xiaohongshu' ? 10_000 : 4_500;
+    const start = Date.now();
+
+    const id = setInterval(() => {
+      const t = (Date.now() - start) / expectedMs;
+      // Asymptotic curve: quick early movement, never arrives on its own.
+      const pct = 95 * (1 - Math.exp(-2.6 * t));
+      setProgress(Math.min(99, Math.round(pct)));
+    }, 100);
+
+    return () => clearInterval(id);
+  }, [isLoading, active]);
 
   // Tapping Xiaohongshu tries the direct-publish bridge first: on success we
   // redirect straight into the XHS app. Any failure (esp. 402 insufficient
   // balance) falls back to the copy-to-clipboard flow — never a dead end.
   async function publishXhs() {
+    trackClick(slug, 'xiaohongshu');
     setActive('xiaohongshu');
     setStatus('loading');
+    setProgress(0);
     setCaption('');
     setCopied(false);
     setNotice('');
@@ -146,6 +222,7 @@ export default function Landing({ slug, restaurant }: Props) {
       const data = (await res.json()) as { url?: string };
       if (!data.url) throw new Error('No url');
 
+      setProgress(100);
       window.location.href = data.url;
     } catch (err) {
       console.error(err);
@@ -212,18 +289,43 @@ export default function Landing({ slug, restaurant }: Props) {
   // Instagram gets no caption at all — there's nothing to pre-fill and nothing
   // worth pasting, so tapping it skips /api/caption and goes straight to the
   // share panel.
-  function openInstagram() {
+  // Instagram gets a rotating pool photo, same as Xiaohongshu, so two
+  // customers don't post the same picture. Claiming happens on this first tap
+  // — the panel then has time to load the file before the customer taps
+  // "Share to Story", which is what keeps navigator.share() inside a user
+  // gesture on Safari. Restaurants without a pool keep the demo image.
+  async function openInstagram() {
+    trackClick(slug, 'instagram');
     setActive('instagram');
     setStatus('done');
     setCaption('');
     setCopied(false);
     setNotice('');
     setPhotoHint('');
+
+    try {
+      const res = await fetch('/api/photo/next', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug }),
+      });
+      if (!res.ok) return; // 404 = no pool, keep the demo image.
+
+      const data = (await res.json()) as { url?: string };
+      if (!data.url || data.url === shareUrl) return;
+
+      // Drop the previous file first so a fast tap can't share the old photo.
+      setPhotoFile(null);
+      setShareUrl(data.url);
+    } catch {
+      // Network failure — the demo image still works.
+    }
   }
 
   async function generate(platform: PlatformId) {
     setActive(platform);
     setStatus('loading');
+    setProgress(0);
     setCaption('');
     setCopied(false);
     setPhotoHint('');
@@ -244,6 +346,7 @@ export default function Landing({ slug, restaurant }: Props) {
       if (!data.caption) throw new Error('No caption');
 
       setCaption(data.caption);
+      setProgress(100);
       setStatus('done');
     } catch (err) {
       console.error(err);
@@ -284,14 +387,14 @@ export default function Landing({ slug, restaurant }: Props) {
     setPhotoHint('');
 
     if (isIosSafari()) {
-      window.open(SHARE_IMAGE_URL, '_blank', 'noopener,noreferrer');
+      window.open(shareUrl, '_blank', 'noopener,noreferrer');
       setPhotoHint('Long-press the photo, then tap “Save to Photos”.');
       return;
     }
 
     setSavingPhoto(true);
     try {
-      const res = await fetch(SHARE_IMAGE_URL);
+      const res = await fetch(shareUrl);
       if (!res.ok) throw new Error(`Fetch failed (${res.status})`);
       const blob = await res.blob();
       const objectUrl = URL.createObjectURL(blob);
@@ -307,7 +410,7 @@ export default function Landing({ slug, restaurant }: Props) {
       console.error(err);
       // Blob download failed (CORS/network) — open the image so the user can
       // still save it manually. Never a dead end.
-      window.open(SHARE_IMAGE_URL, '_blank', 'noopener,noreferrer');
+      window.open(shareUrl, '_blank', 'noopener,noreferrer');
       setPhotoHint('Long-press the photo to save it.');
     } finally {
       setSavingPhoto(false);
@@ -335,8 +438,12 @@ export default function Landing({ slug, restaurant }: Props) {
           off
             ? undefined
             : p.id === 'instagram'
-              ? openInstagram
-              : () => generate(p.id)
+              ? // openInstagram tracks itself.
+                openInstagram
+              : () => {
+                  trackClick(slug, p.id);
+                  void generate(p.id);
+                }
         }
         disabled={isLoading || off}
         aria-disabled={off || undefined}
@@ -391,9 +498,19 @@ export default function Landing({ slug, restaurant }: Props) {
           </button>
         )}
 
-        {pairRow.length > 0 && (
-          <div className="grid">{pairRow.map(renderPlatform)}</div>
-        )}
+        <div className="grid">
+          {instagram && renderPlatform(instagram)}
+          <a
+            className="plat-btn plat-google"
+            href={googleUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackClick(slug, 'google')}
+          >
+            <PlatformIcon id="google" />
+            <span className="plat-label">Google Review</span>
+          </a>
+        </div>
 
         {facebookUrl && (
           <a
@@ -401,6 +518,7 @@ export default function Landing({ slug, restaurant }: Props) {
             href={facebookUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackClick(slug, 'facebook')}
           >
             <PlatformIcon id="facebook" />
             <span className="plat-label">Facebook</span>
@@ -413,6 +531,7 @@ export default function Landing({ slug, restaurant }: Props) {
             href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackClick(slug, 'whatsapp')}
           >
             <WhatsAppIcon />
             <span className="plat-label">WhatsApp</span>
@@ -420,14 +539,30 @@ export default function Landing({ slug, restaurant }: Props) {
         )}
       </div>
 
+      {/* Full-screen, not inline: on a phone the button stack fills the
+          viewport, so an indicator below it sits off-screen and the customer
+          sees nothing happen after tapping. */}
       {isLoading && (
-        <div className="loading-note" aria-live="polite">
-          <p>
-            {active === 'xiaohongshu'
-              ? '正在准备你的小红书笔记… Preparing your post…'
-              : '正在生成文案… Writing your caption…'}
-          </p>
-          <div className="progress" aria-hidden />
+        <div className="overlay" role="status" aria-live="polite">
+          <div className="overlay-card">
+            <div
+              className="ring"
+              style={{ ['--pct' as string]: `${progress}` }}
+              aria-hidden
+            >
+              <span className="ring-pct">{progress}%</span>
+            </div>
+            <p className="overlay-title">
+              {active === 'xiaohongshu'
+                ? '正在准备你的小红书笔记'
+                : '正在生成文案'}
+            </p>
+            <p className="overlay-sub">
+              {active === 'xiaohongshu'
+                ? 'Preparing your post — about 10 seconds'
+                : 'Writing your caption…'}
+            </p>
+          </div>
         </div>
       )}
 
@@ -467,7 +602,7 @@ export default function Landing({ slug, restaurant }: Props) {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 className="share-preview"
-                src={SHARE_IMAGE_URL}
+                src={shareUrl}
                 alt="The photo you're about to share"
               />
               <div className="actions">
