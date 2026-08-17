@@ -1,5 +1,5 @@
 import { NextResponse, after } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { fetchRestaurant } from '@/lib/restaurant';
 import { isPlatformId } from '@/lib/platforms';
 import { generateCaption } from '@/lib/caption';
 import { logCaption } from '@/lib/log';
@@ -24,14 +24,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unknown platform.' }, { status: 400 });
   }
 
-  // Look up the restaurant so the caption is grounded in real name + cuisine.
-  const { data: restaurant, error: dbError } = await supabase
-    .from('restaurants')
-    .select('name, cuisine, google_caption')
-    .eq('slug', slug)
-    .single();
+  // Grounding facts. Optional columns (location, signature dishes, notes) come
+  // back only once their migration has run; without them the caption is still
+  // generated, just with less to work with.
+  const restaurant = await fetchRestaurant(slug);
 
-  if (dbError || !restaurant) {
+  if (!restaurant) {
     return NextResponse.json(
       { error: 'Restaurant not found.' },
       { status: 404 },

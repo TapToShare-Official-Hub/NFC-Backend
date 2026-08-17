@@ -170,6 +170,35 @@ export default function Landing({ slug, restaurant }: Props) {
     };
   }, [fileStem, shareUrl]);
 
+  // Dismiss the result sheet back to the button list.
+  function closeResult() {
+    setActive(null);
+    setStatus('idle');
+    setCaption('');
+    setCopied(false);
+    setNotice('');
+    setPhotoHint('');
+  }
+
+  // Escape closes the sheet, and while it's open the page behind it must not
+  // scroll — otherwise dragging the sheet drags the list underneath.
+  useEffect(() => {
+    if (status !== 'done') return;
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeResult();
+    };
+    document.addEventListener('keydown', onKey);
+
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [status]);
+
   // Simulated progress. Nothing in this flow reports real progress — the wait
   // is one opaque await (OpenAI writes the caption, then the myaibot bridge
   // builds the note), so a truthful bar is impossible. Instead we ease toward
@@ -585,8 +614,30 @@ export default function Landing({ slug, restaurant }: Props) {
         </div>
       )}
 
+      {/* A sheet, not an inline block: the button stack fills a phone screen,
+          so "Share to Story" rendered below it was off-screen and customers
+          never saw it. Tapping the backdrop or ✕ dismisses. */}
       {status === 'done' && activePlatform && (
-        <section className="result" aria-live="polite">
+        <div
+          className="sheet-backdrop"
+          onClick={closeResult}
+          role="presentation"
+        >
+          <section
+            className="result"
+            aria-live="polite"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="sheet-close"
+              onClick={closeResult}
+              aria-label="Close"
+            >
+              ✕
+            </button>
           <div className="result-head">
             <PlatformIcon id={activePlatform.id} />
             <span className="label">
@@ -652,7 +703,8 @@ export default function Landing({ slug, restaurant }: Props) {
             {savingPhoto ? 'Saving…' : '⬇ Save Photo'}
           </button>
           {photoHint && <p className="photo-hint">{photoHint}</p>}
-        </section>
+          </section>
+        </div>
       )}
 
       <footer className="footer">Powered by Tap to Share</footer>

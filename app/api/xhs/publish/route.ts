@@ -1,5 +1,5 @@
 import { NextResponse, after } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { fetchRestaurant } from '@/lib/restaurant';
 import { generateCaption } from '@/lib/caption';
 import { logXhsPublish } from '@/lib/log';
 import { PHOTOS_PER_POST, claimPhotos, releasePhotos } from '@/lib/photos';
@@ -19,13 +19,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Missing slug.' }, { status: 400 });
   }
 
-  const { data: restaurant, error: dbError } = await supabase
-    .from('restaurants')
-    .select('id, name, cuisine, photo_urls')
-    .eq('slug', slug)
-    .single();
+  const restaurant = await fetchRestaurant(slug);
 
-  if (dbError || !restaurant) {
+  if (!restaurant) {
     return NextResponse.json({ error: 'Restaurant not found.' }, { status: 404 });
   }
 
@@ -35,10 +31,16 @@ export async function POST(req: Request) {
   const usingPool = claimed !== null;
   const photoUrls =
     claimed && claimed.length
-      ? claimed
+      ? claimed.map((p) => p.url)
       : usingPool
         ? []
         : restaurant.photo_urls?.slice(0, PHOTOS_PER_POST) ?? [];
+
+  // The caption is written about the photo the customer is about to post, so
+  // the dish on that photo — not a random menu item — is what it describes.
+  // Unlabelled photos give null, and the caption stays generic rather than
+  // naming food that isn't in the picture.
+  const featuredDish = claimed?.[0]?.dish ?? null;
 
   // Pool ran dry: every photo has been posted. Distinct status so the client
   // falls back to copy-to-clipboard instead of showing a generic failure.
@@ -59,7 +61,10 @@ export async function POST(req: Request) {
   let title: string;
   let content: string;
   try {
-    ({ title, content } = await generateCaption('xiaohongshu', restaurant));
+    ({ title, content } = await generateCaption('xiaohongshu', {
+      ...restaurant,
+      featured_dish: featuredDish,
+    }));
   } catch (err) {
     console.error('[xhs/publish] caption generation failed', err);
     // Nothing was published, so the photos must go back in the pool.

@@ -35,6 +35,34 @@ alter table public.restaurants add column if not exists whatsapp_number text;
 -- facebook.com's generic homepage is a dead end on a client's page.
 alter table public.restaurants add column if not exists facebook_url text;
 
+-- ----------------------------------------------------------------------------
+-- Caption grounding. With only name + cuisine ("Western Food") the model has
+-- nothing concrete to say, so it falls back to generic influencer filler. These
+-- columns are the difference between "a great meal!" and "the grilled ribeye in
+-- Seri Petaling". All optional — captions still generate without them.
+--
+-- This does NOT relax the no-invented-dishes rule: the model may only use what
+-- is stored here, which is exactly why the dishes have to come from the client.
+-- ----------------------------------------------------------------------------
+alter table public.restaurants add column if not exists neighbourhood text;
+-- e.g. 'Seri Petaling, Kuala Lumpur'
+
+alter table public.restaurants add column if not exists landmarks text;
+-- What locals actually navigate by. High value on Xiaohongshu, where people
+-- search by landmark far more than by street address.
+-- e.g. 'Diagonally opposite SMK Bandar Baru Seri Petaling; same row of shops
+--       as Sen Heng, a few doors down; near Mamak Aliff'
+
+alter table public.restaurants add column if not exists signature_dishes text[];
+-- PUT THE SIGNATURE DISH FIRST — it is surfaced more often than the others.
+-- e.g. array['Suckling pig','Tomahawk steak','Iberico pork ribs','Aglio olio']
+
+alter table public.restaurants add column if not exists notes text;
+-- Free-form colour: hours, vibe, who it suits, dietary facts.
+-- State dietary status explicitly when it matters — a pork restaurant must
+-- never be described as halal, and the model only knows what is written here.
+-- e.g. 'Dinner only, 6-11pm, closed Tuesdays. Non-halal (pork served).'
+
 -- PROTOTYPE: hardcoded caption, remove for multi-restaurant.
 -- For the demo, the Google Review button serves this fixed caption verbatim
 -- instead of calling OpenAI. Null → fall back to normal generation.
@@ -60,6 +88,12 @@ create table if not exists public.restaurant_photos (
 
 -- Partial index: the claim query only ever scans unclaimed rows, so this stays
 -- fast as claimed photos pile up.
+-- What is actually in this photo. The caption is written about the picture the
+-- customer is posting, so a photo of steak must not produce a caption about
+-- escargot. Null is safe: the caption then stays generic rather than naming a
+-- dish that isn't on screen.
+alter table public.restaurant_photos add column if not exists dish text;
+
 create index if not exists restaurant_photos_unclaimed_idx
   on public.restaurant_photos (restaurant_id, position)
   where claimed_at is null;
@@ -84,12 +118,16 @@ create unique index if not exists restaurant_photos_unique_url
 --                     Required for a small pool (6 photos over a 14-day trial).
 -- p_recycle = false → each photo used exactly once, then exhausted. Use when
 --                     the pool is big enough that repeats would look sloppy.
+-- Returns the dish alongside the url so the caption can describe the photo.
+-- Changing a function's return type requires dropping it first.
+drop function if exists public.claim_photos(text, int, boolean);
+
 create or replace function public.claim_photos(
   p_slug    text,
   p_count   int     default 1,
   p_recycle boolean default true
 )
-returns table (url text)
+returns table (url text, dish text)
 language sql
 security definer
 set search_path = public
@@ -108,7 +146,7 @@ as $$
     limit greatest(coalesce(p_count, 1), 1)
     for update skip locked
   )
-  returning p.url;
+  returning p.url, p.dish;
 $$;
 
 -- Put photos back when the publish fails downstream, so a myaibot error

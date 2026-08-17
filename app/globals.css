@@ -455,13 +455,64 @@ body {
 }
 
 /* ---- Result card ---- */
+/* ---- Result sheet ---- */
+/* Slides up from the bottom rather than sitting below the buttons, which on a
+   phone is off-screen. Bottom-anchored so the primary action lands under the
+   thumb. */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(24, 19, 15, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: overlay-in 0.18s ease-out;
+}
+
 .result {
-  margin-top: 20px;
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  max-height: 88dvh;
+  overflow-y: auto;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-  box-shadow: 0 6px 18px rgba(23, 19, 15, 0.06);
+  border-radius: 24px 24px 0 0;
+  padding: 20px 18px calc(20px + var(--safe-bottom));
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.25);
+  animation: sheet-up 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+.sheet-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-backdrop,
+  .result {
+    animation: none;
+  }
 }
 
 .result-head {

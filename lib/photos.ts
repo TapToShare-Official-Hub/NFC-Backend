@@ -17,10 +17,16 @@ export const RECYCLE_PHOTOS = true;
  * at all — callers treat those differently: exhausted is a real end state,
  * un-migrated means fall back to whatever the caller used before.
  */
+export interface ClaimedPhoto {
+  url: string;
+  /** What's in the picture. Null when the photo hasn't been labelled. */
+  dish: string | null;
+}
+
 export async function claimPhotos(
   slug: string,
   count: number = PHOTOS_PER_POST,
-): Promise<string[] | null> {
+): Promise<ClaimedPhoto[] | null> {
   // SKIP LOCKED returns nothing when every candidate row is momentarily locked
   // by a simultaneous tap. In recycle mode the pool can never truly be empty,
   // so an empty result there means contention, not exhaustion — retry rather
@@ -41,8 +47,8 @@ export async function claimPhotos(
       return null;
     }
 
-    const urls = (data as { url: string }[] | null)?.map((r) => r.url) ?? [];
-    if (urls.length) return urls;
+    const rows = (data as ClaimedPhoto[] | null) ?? [];
+    if (rows.length) return rows;
 
     // Brief, growing pause so the competing transaction can commit.
     if (attempt < attempts - 1) {

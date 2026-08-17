@@ -1,11 +1,31 @@
 import OpenAI from 'openai';
-import { buildPrompt } from '@/lib/prompt';
+import { buildPrompt, type CaptionFacts } from '@/lib/prompt';
 import type { PlatformId } from '@/lib/platforms';
 
 // The exact model requested for this project.
 const MODEL = 'gpt-4o-mini';
 
 const openai = new OpenAI(); // reads OPENAI_API_KEY from the environment
+
+/**
+ * Xiaohongshu notes live or die by their hashtags — that's how they get found.
+ * The model drops them maybe half the time despite being told not to, so the
+ * floor is enforced here rather than hoped for, exactly like the title limit.
+ */
+export function ensureXhsTags(content: string, facts: CaptionFacts): string {
+  if (content.includes('#')) return content;
+
+  const strip = (s: string) => s.replace(/[^\p{L}\p{N}]/gu, '');
+  const tags = [`#${strip(facts.name)}`];
+
+  if (facts.neighbourhood) {
+    const area = strip(facts.neighbourhood.split(/[,，]/)[0]);
+    if (area) tags.push(`#${area}`);
+  }
+  tags.push('#美食', '#探店');
+
+  return `${content}\n${tags.filter((t) => t.length > 1).join(' ')}`;
+}
 
 /** Xiaohongshu returns a structured note; every other platform returns text. */
 export interface XhsCaption {
@@ -48,22 +68,25 @@ export function truncateXhsTitle(s: string, max = 20): string {
  */
 export async function generateCaption(
   platform: 'xiaohongshu',
-  restaurant: { name: string; cuisine: string },
+  restaurant: CaptionFacts,
 ): Promise<XhsCaption>;
 export async function generateCaption(
   platform: PlatformId,
-  restaurant: { name: string; cuisine: string },
+  restaurant: CaptionFacts,
 ): Promise<string | XhsCaption>;
 export async function generateCaption(
   platform: PlatformId,
-  restaurant: { name: string; cuisine: string },
+  restaurant: CaptionFacts,
 ): Promise<string | XhsCaption> {
-  const { system, user } = buildPrompt(platform, restaurant.name, restaurant.cuisine);
+  const { system, user } = buildPrompt(platform, restaurant);
 
   if (platform === 'xiaohongshu') {
     const completion = await openai.chat.completions.create({
       model: MODEL,
       max_tokens: 400,
+      temperature: 1.05,
+      frequency_penalty: 0.4,
+      presence_penalty: 0.3,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: system },
@@ -74,7 +97,7 @@ export async function generateCaption(
     const raw = completion.choices[0]?.message?.content ?? '';
     const parsed = JSON.parse(raw) as { title?: unknown; content?: unknown };
     const title = truncateXhsTitle(String(parsed.title ?? '').trim());
-    const content = String(parsed.content ?? '').trim();
+    const content = ensureXhsTags(String(parsed.content ?? '').trim(), restaurant);
 
     if (!title || !content) {
       throw new Error('Xiaohongshu caption missing title or content.');
@@ -85,6 +108,9 @@ export async function generateCaption(
   const completion = await openai.chat.completions.create({
     model: MODEL,
     max_tokens: 400,
+    temperature: 1.05,
+    frequency_penalty: 0.4,
+    presence_penalty: 0.3,
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: user },
