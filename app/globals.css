@@ -616,6 +616,36 @@ body {
   border: 1px solid var(--border);
 }
 
+/* Holds the exact space the photo will occupy, so the sheet doesn't jump when
+   the image arrives. Shimmer signals "loading" rather than "empty". */
+.share-preview.is-pending {
+  height: 300px;
+  width: 225px; /* 3:4, the shape of the photos we hand out */
+  max-width: 100%;
+  background:
+    linear-gradient(
+        100deg,
+        rgba(255, 255, 255, 0) 20%,
+        rgba(255, 255, 255, 0.65) 50%,
+        rgba(255, 255, 255, 0) 80%
+      )
+      var(--surface-2);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .share-preview.is-pending {
+    animation: none;
+  }
+}
+
 .photo-hint {
   margin: 10px 0 0;
   text-align: center;

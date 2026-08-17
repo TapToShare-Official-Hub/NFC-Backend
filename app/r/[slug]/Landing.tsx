@@ -111,9 +111,10 @@ export default function Landing({ slug, restaurant }: Props) {
   // Pre-fetched so "Share to Story" can call navigator.share() synchronously —
   // Safari drops the user gesture if you await a fetch inside the handler.
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  // Which image the Instagram panel is currently offering. Starts as the demo
-  // image and is replaced by a pool photo once the customer taps Instagram.
-  const [shareUrl, setShareUrl] = useState(SHARE_IMAGE_URL);
+  // Which image the Instagram panel is offering. Null until we know which one
+  // it is — showing the demo photo first and swapping it a moment later makes
+  // the customer think they're about to post the wrong picture.
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
 
   // Xiaohongshu notes require an image; hide the button when there are none.
@@ -145,6 +146,7 @@ export default function Landing({ slug, restaurant }: Props) {
   // await a fetch inside the handler. A failure here is silent: shareToStory()
   // degrades to the story-camera deep link.
   useEffect(() => {
+    if (!shareUrl) return;
     let cancelled = false;
 
     (async () => {
@@ -332,26 +334,31 @@ export default function Landing({ slug, restaurant }: Props) {
     setNotice('');
     setPhotoHint('');
 
+    // Blank the panel while we find out which photo this is. Everything below
+    // resolves it to exactly one url — a pool photo, or the demo image for
+    // restaurants without a pool.
+    setPhotoFile(null);
+    setShareUrl(null);
+
     try {
       const res = await fetch('/api/photo/next', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slug }),
       });
-      if (!res.ok) return; // 404 = no pool, keep the demo image.
 
-      const data = (await res.json()) as { url?: unknown };
+      const data = res.ok
+        ? ((await res.json()) as { url?: unknown })
+        : { url: undefined };
+
       // Guard the type, not just the presence: a non-string here silently
       // becomes src="[object Object]" and the customer sees a broken image.
-      if (typeof data.url !== 'string' || !data.url || data.url === shareUrl) {
-        return;
-      }
-
-      // Drop the previous file first so a fast tap can't share the old photo.
-      setPhotoFile(null);
-      setShareUrl(data.url);
+      setShareUrl(
+        typeof data.url === 'string' && data.url ? data.url : SHARE_IMAGE_URL,
+      );
     } catch {
-      // Network failure — the demo image still works.
+      // Network failure — fall back to the demo image rather than nothing.
+      setShareUrl(SHARE_IMAGE_URL);
     }
   }
 
@@ -416,7 +423,7 @@ export default function Landing({ slug, restaurant }: Props) {
   }
 
   async function savePhoto() {
-    if (savingPhoto) return;
+    if (savingPhoto || !shareUrl) return;
     setPhotoHint('');
 
     if (isIosSafari()) {
@@ -654,19 +661,27 @@ export default function Landing({ slug, restaurant }: Props) {
           {/* Instagram gets no caption — just the photo and the share sheet. */}
           {activePlatform.id === 'instagram' ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                className="share-preview"
-                src={shareUrl}
-                alt="The photo you're about to share"
-              />
+              {/* Placeholder until the photo is known. Rendering the demo
+                  image here and swapping it a moment later reads as "wrong
+                  photo, then it changed" — worse than a brief blank. */}
+              {shareUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  className="share-preview"
+                  src={shareUrl}
+                  alt="The photo you're about to share"
+                />
+              ) : (
+                <div className="share-preview is-pending" aria-hidden />
+              )}
               <div className="actions">
                 <button
                   type="button"
                   className="action-btn primary"
                   onClick={shareToStory}
+                  disabled={!shareUrl}
                 >
-                  Share to Story
+                  {shareUrl ? 'Share to Story' : 'Getting your photo…'}
                 </button>
               </div>
               <p className="photo-hint">
